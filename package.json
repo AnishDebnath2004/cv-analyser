@@ -2,7 +2,10 @@
   "name": "cv-analyser-root",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.x"
+  },
   "scripts": {
-    "build": "cd frontend && npm install --include=dev && npm run build"
+    "build": "cd frontend && npm install --no-package-lock && npm run build"
   }
 }

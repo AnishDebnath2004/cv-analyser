@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm install --include=dev && npm run build",
+  "buildCommand": "cd frontend && npm install --no-package-lock && npm run build",
   "outputDirectory": "backend/static",
   "rewrites": [
     {
