@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build || true",
-  "outputDirectory": "backend/static",
+  "outputDirectory": "static",
   "rewrites": [
     {
       "source": "/api/(.*)",

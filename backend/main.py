@@ -307,9 +307,14 @@ async def chat_with_agent(req: ChatRequest):
 
 # Serve built static frontend files if they exist
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+ROOT_STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
-if not os.path.exists(STATIC_DIR) and os.path.exists(FRONTEND_DIST):
-    STATIC_DIR = FRONTEND_DIST
+
+if not os.path.exists(STATIC_DIR):
+    if os.path.exists(ROOT_STATIC):
+        STATIC_DIR = ROOT_STATIC
+    elif os.path.exists(FRONTEND_DIST):
+        STATIC_DIR = FRONTEND_DIST
 
 if os.path.exists(STATIC_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
