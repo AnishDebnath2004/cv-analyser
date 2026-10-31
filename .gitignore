@@ -1,0 +1,42 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Node & Frontend dependencies
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.eslintcache
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases
+backend/*.db
+*.sqlite
+*.sqlite3
+*.db
+
+# Temporary & Scratch files
+scratch/
+tmp/
+temp/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
