@@ -65,12 +65,19 @@ class TextAnalyzeRequest(BaseModel):
 
 @app.get("/api/health")
 async def health_check():
-    onet_service = get_onet_service()
-    return {
-        "status": "healthy",
-        "onet_credentials_present": onet_service.has_credentials(),
-        "gemini_configured": bool(runtime_settings["gemini_api_key"])
-    }
+    try:
+        onet_service = get_onet_service()
+        return {
+            "status": "healthy",
+            "onet_credentials_present": onet_service.has_credentials(),
+            "gemini_configured": bool(runtime_settings["gemini_api_key"])
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "status": "degraded",
+            "error": str(e)
+        }
 
 
 # ==========================================
@@ -205,9 +212,15 @@ async def analyze_upload(file: UploadFile = File(...)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="The uploaded document contains no readable text. Please check the file.")
 
-    agent = get_cv_agent()
-    result = await agent.analyze(raw_text)
-    return result
+    try:
+        agent = get_cv_agent()
+        result = await agent.analyze(raw_text)
+        return result
+    except Exception as e:
+        logger.error(f"Analysis engine error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 
 @app.post("/api/analyze/text", response_model=AnalysisResult)
@@ -216,9 +229,13 @@ async def analyze_text(payload: TextAnalyzeRequest):
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Resume text cannot be empty.")
     
-    agent = get_cv_agent()
-    result = await agent.analyze(payload.text)
-    return result
+    try:
+        agent = get_cv_agent()
+        result = await agent.analyze(payload.text)
+        return result
+    except Exception as e:
+        logger.error(f"Analysis engine error: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 
 @app.get("/api/onet/search")
@@ -296,13 +313,23 @@ async def update_settings(settings: SettingsModel):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_with_agent(req: ChatRequest):
     """Interactive conversational agent for career advice based on the analyzed CV."""
-    agent = get_cv_agent()
-    response = await agent.chat(
-        message=req.message,
-        chat_history=req.chat_history,
-        analysis_context=req.analysis_context
-    )
-    return response
+    try:
+        agent = get_cv_agent()
+        response = await agent.chat(
+            message=req.message,
+            chat_history=req.chat_history,
+            analysis_context=req.analysis_context
+        )
+        return response
+    except Exception as e:
+        logger.error(f"Chat agent error: {e}")
+        return ChatResponse(
+            reply="I encountered an issue processing that query. Please try again or rephrase your question.",
+            suggested_questions=[
+                "What are the top career recommendations for my profile?",
+                "Which skill gaps should I prioritize first?"
+            ]
+        )
 
 
 # Serve built static frontend files if they exist
@@ -317,7 +344,9 @@ if not os.path.exists(STATIC_DIR):
         STATIC_DIR = FRONTEND_DIST
 
 if os.path.exists(STATIC_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+    assets_dir = os.path.join(STATIC_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/")
     async def serve_root():

@@ -9,9 +9,29 @@ from typing import Optional, Dict, Any, Tuple
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
 
+def is_directory_writable(dir_path: str) -> bool:
+    try:
+        test_file = os.path.join(dir_path, f".test_{os.getpid()}")
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return True
+    except Exception:
+        return False
+
+
 def resolve_db_path() -> str:
     """Resolve database path, copying to /tmp if running in a serverless environment like Vercel."""
-    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    backend_dir = os.path.dirname(__file__)
+    is_serverless = bool(
+        os.environ.get("VERCEL") or
+        os.environ.get("VERCEL_ENV") or
+        os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or
+        os.environ.get("LAMBDA_TASK_ROOT") or
+        not is_directory_writable(backend_dir)
+    )
+
+    if is_serverless:
         tmp_db = "/tmp/users.db"
         if not os.path.exists(tmp_db) and os.path.exists(DEFAULT_DB_PATH):
             try:
@@ -52,41 +72,44 @@ class AuthService:
 
     def _init_db(self):
         """Ensure users and sessions tables exist."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT UNIQUE NOT NULL COLLATE NOCASE,
-                    full_name TEXT NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    salt TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """
-            )
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token TEXT PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """
-            )
-            conn.commit()
-
-            # Ensure a default demo user exists for easy testing
-            cursor.execute("SELECT id FROM users WHERE email = ?", ("demo@pathfinder.ai",))
-            if not cursor.fetchone():
-                pw_hash, salt_hex = hash_password("demo1234")
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO users (email, full_name, password_hash, salt) VALUES (?, ?, ?, ?)",
-                    ("demo@pathfinder.ai", "Alex Morgan", pw_hash, salt_hex)
+                    """
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+                        full_name TEXT NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        salt TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        token TEXT PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """
                 )
                 conn.commit()
+
+                # Ensure a default demo user exists for easy testing
+                cursor.execute("SELECT id FROM users WHERE email = ?", ("demo@pathfinder.ai",))
+                if not cursor.fetchone():
+                    pw_hash, salt_hex = hash_password("demo1234")
+                    cursor.execute(
+                        "INSERT INTO users (email, full_name, password_hash, salt) VALUES (?, ?, ?, ?)",
+                        ("demo@pathfinder.ai", "Alex Morgan", pw_hash, salt_hex)
+                    )
+                    conn.commit()
+        except Exception as e:
+            print(f"Notice: SQLite DB init deferred or read-only: {e}")
 
     def register(self, email: str, full_name: str, password: str) -> Tuple[Dict[str, Any], str]:
         """Register a new user and generate a session token."""

@@ -278,9 +278,9 @@ Please provide an expert career assessment in strictly valid JSON format with th
 
 Return ONLY valid JSON.
 """
-            # Use gemini-2.5-flash
+            # Use gemini-1.5-flash
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -388,7 +388,7 @@ Return ONLY valid JSON.
                 parsed, top_matches, primary_domain, effective_gemini_key
             )
             if gemini_enrichment:
-                ai_model_name = "Google Gemini 2.5 Flash + O*NET Engine"
+                ai_model_name = "Google Gemini 1.5 Flash + O*NET Engine"
                 if gemini_enrichment.get("candidate_summary"):
                     candidate_summary = gemini_enrichment["candidate_summary"]
                 if gemini_enrichment.get("executive_strengths"):
@@ -457,7 +457,7 @@ Return ONLY valid JSON.
                 full_prompt = f"{system_instruction}\n\n{context_str}\n\n" + "\n".join(messages)
 
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-1.5-flash",
                     contents=full_prompt
                 )
                 if response and response.text:
