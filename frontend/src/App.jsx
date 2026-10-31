@@ -120,8 +120,19 @@ export default function App() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || 'Analysis failed');
+        let errorMsg = 'Analysis failed';
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.detail || errorMsg;
+        } catch {
+          try {
+            const rawText = await res.text();
+            errorMsg = rawText.slice(0, 150) || errorMsg;
+          } catch {
+            errorMsg = `Server error (Status ${res.status})`;
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();
