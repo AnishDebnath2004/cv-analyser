@@ -2,10 +2,27 @@ import os
 import sqlite3
 import secrets
 import hashlib
+import shutil
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+
+
+def resolve_db_path() -> str:
+    """Resolve database path, copying to /tmp if running in a serverless environment like Vercel."""
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        tmp_db = "/tmp/users.db"
+        if not os.path.exists(tmp_db) and os.path.exists(DEFAULT_DB_PATH):
+            try:
+                shutil.copy2(DEFAULT_DB_PATH, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+    return DEFAULT_DB_PATH
+
+
+DB_PATH = resolve_db_path()
 
 
 def hash_password(password: str, salt: Optional[bytes] = None) -> Tuple[str, str]:
