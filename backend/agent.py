@@ -1,14 +1,32 @@
 import os
+import sys
 import re
 import json
 import logging
 from typing import List, Dict, Any, Optional
-from backend.models import (
-    ParsedResume, JobProfileMatch, SkillGapItem, AnalysisResult,
-    ChatMessage, ChatResponse, ScoreBreakdown
-)
-from backend.resume_parser import ResumeParser
-from backend.onet_service import ONetService
+
+# Ensure both current directory and parent directory are on sys.path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+try:
+    from backend.models import (
+        ParsedResume, JobProfileMatch, SkillGapItem, AnalysisResult,
+        ChatMessage, ChatResponse, ScoreBreakdown
+    )
+    from backend.resume_parser import ResumeParser
+    from backend.onet_service import ONetService
+except ImportError:
+    from models import (
+        ParsedResume, JobProfileMatch, SkillGapItem, AnalysisResult,
+        ChatMessage, ChatResponse, ScoreBreakdown
+    )
+    from resume_parser import ResumeParser
+    from onet_service import ONetService
 
 logger = logging.getLogger("cv_ai_agent")
 

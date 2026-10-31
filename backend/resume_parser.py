@@ -1,9 +1,23 @@
 import re
 import io
+import os
+import sys
 from typing import Dict, Any, List, Optional, Tuple
 from pypdf import PdfReader
 import docx
-from backend.models import ParsedResume, CategorizedSkills, WorkExperience, Education
+
+# Ensure both current directory and parent directory are on sys.path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+try:
+    from backend.models import ParsedResume, CategorizedSkills, WorkExperience, Education
+except ImportError:
+    from models import ParsedResume, CategorizedSkills, WorkExperience, Education
 
 # Comprehensive skill dictionaries
 TECH_SKILLS_TAXONOMY = {

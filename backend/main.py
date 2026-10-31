@@ -1,21 +1,42 @@
 import os
+import sys
 import logging
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Body, Header
+
+# Ensure both current directory and parent directory are on sys.path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from backend.models import (
-    AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
-    UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse
-)
-from backend.resume_parser import ResumeParser
-from backend.onet_service import ONetService
-from backend.agent import CVAgent
-from backend.sample_resumes import SAMPLE_RESUMES
-from backend.auth_service import auth_service
+try:
+    from backend.models import (
+        AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
+        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse
+    )
+    from backend.resume_parser import ResumeParser
+    from backend.onet_service import ONetService
+    from backend.agent import CVAgent
+    from backend.sample_resumes import SAMPLE_RESUMES
+    from backend.auth_service import auth_service
+except ImportError:
+    from models import (
+        AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
+        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse
+    )
+    from resume_parser import ResumeParser
+    from onet_service import ONetService
+    from agent import CVAgent
+    from sample_resumes import SAMPLE_RESUMES
+    from auth_service import auth_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cv_analyzer_api")
@@ -23,8 +44,11 @@ logger = logging.getLogger("cv_analyzer_api")
 app = FastAPI(
     title="O*NET AI CV Analyzer & Career Guidance Agent",
     description="Intelligent AI Agent for scanning resumes and matching candidates to optimal O*NET job profiles.",
-    version="1.0.1"
+    version="1.0.1",
+    redirect_slashes=False
 )
+
+api_router = APIRouter(redirect_slashes=False)
 
 # Enable CORS for frontend dev server
 app.add_middleware(
@@ -63,7 +87,7 @@ class TextAnalyzeRequest(BaseModel):
     text: str
 
 
-@app.get("/api/health")
+@api_router.get("/health")
 async def health_check():
     try:
         onet_service = get_onet_service()
@@ -84,8 +108,8 @@ async def health_check():
 # Authentication & User Management Routes
 # ==========================================
 
-@app.post("/api/auth/register", response_model=AuthResponse)
-@app.post("/api/auth/signup", response_model=AuthResponse)
+@api_router.post("/auth/register", response_model=AuthResponse)
+@api_router.post("/auth/signup", response_model=AuthResponse)
 async def register_user(payload: UserRegisterRequest):
     """Register a new user account and obtain session credentials."""
     try:
@@ -106,7 +130,7 @@ async def register_user(payload: UserRegisterRequest):
         raise HTTPException(status_code=500, detail="Internal server error during registration")
 
 
-@app.post("/api/auth/login", response_model=AuthResponse)
+@api_router.post("/auth/login", response_model=AuthResponse)
 async def login_user(payload: UserLoginRequest):
     """Authenticate with email and password to receive a session token."""
     try:
@@ -126,7 +150,7 @@ async def login_user(payload: UserLoginRequest):
         raise HTTPException(status_code=500, detail="Internal server error during login")
 
 
-@app.get("/api/auth/me", response_model=UserResponse)
+@api_router.get("/auth/me", response_model=UserResponse)
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """Retrieve the currently authenticated user profile."""
     token = None
@@ -146,7 +170,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     return UserResponse(**user)
 
 
-@app.post("/api/auth/logout")
+@api_router.post("/auth/logout")
 async def logout_user(authorization: Optional[str] = Header(None)):
     """Log out and revoke the current session token."""
     token = None
@@ -161,7 +185,7 @@ async def logout_user(authorization: Optional[str] = Header(None)):
     return {"status": "success", "message": "Logged out successfully"}
 
 
-@app.get("/api/samples")
+@api_router.get("/samples")
 async def get_samples():
     """Return list of pre-configured sample resumes for instant testing."""
     summary_list = []
@@ -176,7 +200,7 @@ async def get_samples():
     return summary_list
 
 
-@app.post("/api/analyze/sample/{sample_id}", response_model=AnalysisResult)
+@api_router.post("/analyze/sample/{sample_id}", response_model=AnalysisResult)
 async def analyze_sample(sample_id: str):
     """Analyze one of the pre-configured sample resumes."""
     if sample_id not in SAMPLE_RESUMES:
@@ -188,7 +212,7 @@ async def analyze_sample(sample_id: str):
     return result
 
 
-@app.post("/api/analyze/upload", response_model=AnalysisResult)
+@api_router.post("/analyze/upload", response_model=AnalysisResult)
 async def analyze_upload(file: UploadFile = File(...)):
     """Upload and analyze a resume file (PDF, DOCX, or TXT)."""
     filename = file.filename.lower() if file.filename else ""
@@ -223,7 +247,7 @@ async def analyze_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 
-@app.post("/api/analyze/text", response_model=AnalysisResult)
+@api_router.post("/analyze/text", response_model=AnalysisResult)
 async def analyze_text(payload: TextAnalyzeRequest):
     """Analyze pasted resume text."""
     if not payload.text.strip():
@@ -238,7 +262,7 @@ async def analyze_text(payload: TextAnalyzeRequest):
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
 
-@app.get("/api/onet/search")
+@api_router.get("/onet/search")
 async def onet_search(q: str = Query(..., min_length=1), limit: int = 10):
     """Search O*NET occupations by keyword or technology."""
     onet_service = get_onet_service()
@@ -250,14 +274,14 @@ async def onet_search(q: str = Query(..., min_length=1), limit: int = 10):
     }
 
 
-@app.get("/api/onet/occupations")
+@api_router.get("/onet/occupations")
 async def get_all_occupations():
     """Get all O*NET catalog occupations."""
     onet_service = get_onet_service()
     return onet_service.get_all_catalog()
 
 
-@app.get("/api/onet/occupation/{soc_code}")
+@api_router.get("/onet/occupation/{soc_code}")
 async def get_occupation_profile(soc_code: str):
     """Get full O*NET occupation profile by SOC code."""
     onet_service = get_onet_service()
@@ -267,7 +291,7 @@ async def get_occupation_profile(soc_code: str):
     return occ
 
 
-@app.post("/api/onet/test")
+@api_router.post("/onet/test")
 async def test_onet_connection():
     """Test connection to O*NET Web Services API with currently stored credentials."""
     onet_service = get_onet_service()
@@ -275,7 +299,7 @@ async def test_onet_connection():
     return status
 
 
-@app.get("/api/settings")
+@api_router.get("/settings")
 async def get_settings():
     """Get current configuration status (without leaking secrets)."""
     return {
@@ -286,7 +310,7 @@ async def get_settings():
     }
 
 
-@app.post("/api/settings")
+@api_router.post("/settings")
 async def update_settings(settings: SettingsModel):
     """Update runtime O*NET and Gemini API keys."""
     if settings.onet_api_key is not None:
@@ -310,7 +334,7 @@ async def update_settings(settings: SettingsModel):
     }
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@api_router.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(req: ChatRequest):
     """Interactive conversational agent for career advice based on the analyzed CV."""
     try:
@@ -330,6 +354,11 @@ async def chat_with_agent(req: ChatRequest):
                 "Which skill gaps should I prioritize first?"
             ]
         )
+
+
+# Mount router to handle both /api prefixed routes AND root-relative routes seamlessly
+app.include_router(api_router, prefix="/api")
+app.include_router(api_router)
 
 
 # Serve built static frontend files if they exist
