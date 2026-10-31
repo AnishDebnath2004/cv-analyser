@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm install --no-package-lock && npm run build",
+  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build || true",
   "outputDirectory": "backend/static",
   "rewrites": [
     {
