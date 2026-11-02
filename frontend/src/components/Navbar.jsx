@@ -9,7 +9,8 @@ import {
   LogIn,
   UserPlus,
   LogOut,
-  User
+  User,
+  Settings
 } from 'lucide-react';
 
 export default function Navbar({
@@ -21,6 +22,7 @@ export default function Navbar({
   authProvider = 'sqlite',
   currentUser,
   onOpenAuth,
+  onOpenSettings,
   onLogout
 }) {
   const toggleTheme = () => {
@@ -44,16 +46,18 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
-        {/* Auth Database Status Pill */}
+        {/* Auth Database Status Pill (Clickable to configure Supabase) */}
         <div 
           className="badge"
+          onClick={onOpenSettings}
           style={{
             background: authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.12)' : 'rgba(255, 255, 255, 0.05)',
             color: authProvider === 'supabase' ? '#3ecf8e' : 'var(--text-muted)',
             border: `1px solid ${authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.25)' : 'var(--border-subtle)'}`,
-            gap: 5
+            gap: 5,
+            cursor: 'pointer'
           }}
-          title={authProvider === 'supabase' ? 'Connected to Supabase PostgreSQL Cloud Database' : 'Using Local SQLite Database'}
+          title={authProvider === 'supabase' ? 'Connected to Supabase PostgreSQL Cloud Database (Click to edit settings)' : 'Using SQLite Local Database (Click to connect Supabase)'}
         >
           <Database size={13} color={authProvider === 'supabase' ? '#3ecf8e' : 'currentColor'} />
           <span>{authProvider === 'supabase' ? 'Supabase DB' : 'SQLite DB'}</span>
@@ -123,6 +127,16 @@ export default function Navbar({
             </button>
           </div>
         )}
+
+        {/* Settings Modal Toggle */}
+        <button 
+          className="btn-ghost" 
+          onClick={onOpenSettings} 
+          title="Configure Supabase, O*NET, and Gemini"
+          style={{ padding: '8px 10px' }}
+        >
+          <Settings size={18} />
+        </button>
 
         {/* Light / Dark Theme Toggle */}
         <button 

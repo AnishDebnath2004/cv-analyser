@@ -4,6 +4,7 @@ import UploadSection from './components/UploadSection';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
+import SettingsModal from './components/SettingsModal';
 import './App.css';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login'); // 'login' | 'signup'
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Fetch health and check existing auth session on mount
   useEffect(() => {
@@ -153,6 +155,18 @@ export default function App() {
     setAnalysisResult(null);
   };
 
+  const handleSettingsUpdated = (data) => {
+    if (data.auth_provider) {
+      setAuthProvider(data.auth_provider);
+    }
+    if (data.onet_connection) {
+      setOnetStatus({
+        connected: data.onet_connection.success,
+        message: data.onet_connection.message || (data.onet_connection.success ? 'O*NET Live Web Services Active' : 'O*NET Curated Taxonomy Active'),
+      });
+    }
+  };
+
   return (
     <div className="app-container">
       <Navbar
@@ -164,6 +178,7 @@ export default function App() {
         authProvider={authProvider}
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
+        onOpenSettings={() => setSettingsModalOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -195,6 +210,12 @@ export default function App() {
         initialMode={authModalMode}
         onClose={() => setAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
+      />
+
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        onSettingsUpdated={handleSettingsUpdated}
       />
     </div>
   );
