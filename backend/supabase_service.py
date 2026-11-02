@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 import httpx
 
@@ -66,9 +67,35 @@ class SupabaseAuthService:
                 "message": f"Connection error: {str(e)}"
             }
 
+    def _sync_public_profile(self, user_id: str, email: str, full_name: str, access_token: Optional[str] = None):
+        """
+        Automatically store and update user details into the Supabase PostgreSQL 'public.profiles' table
+        so they appear in the Supabase Table Editor.
+        """
+        if not self.is_configured() or not user_id:
+            return
+
+        headers = self._get_headers(access_token)
+        headers["Prefer"] = "resolution=merge-duplicates"
+
+        profile_url = f"{self.supabase_url}/rest/v1/profiles"
+        payload = {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "updated_at": datetime.now().isoformat()
+        }
+
+        try:
+            with httpx.Client(timeout=8.0) as client:
+                client.post(profile_url, json=payload, headers=headers)
+        except Exception as e:
+            logger.info(f"Public profile table sync notice: {e}")
+
     def register(self, email: str, full_name: str, password: str) -> Tuple[Dict[str, Any], str]:
         """
         Register a new user in Supabase Auth (auth.users) and return the user profile & session token.
+        Automatically stores user details into Supabase auth and public.profiles table.
         """
         if not self.is_configured():
             raise ValueError("Supabase is not configured.")
@@ -114,6 +141,11 @@ class SupabaseAuthService:
                         "full_name": user_data.get("user_metadata", {}).get("full_name") or full_name,
                         "created_at": user_data.get("created_at")
                     }
+
+                    # Automatically store user details in Supabase public.profiles table
+                    if access_token and not access_token.startswith("pending_confirmation"):
+                        self._sync_public_profile(user_dict["id"], user_dict["email"], user_dict["full_name"], access_token)
+
                     return user_dict, access_token or ""
                 else:
                     error_msg = data.get("msg") or data.get("error_description") or data.get("message") or res.text
@@ -127,6 +159,7 @@ class SupabaseAuthService:
     def login(self, email: str, password: str) -> Tuple[Dict[str, Any], str]:
         """
         Authenticate with email & password via Supabase Auth and return user profile & JWT session token.
+        Automatically syncs latest sign-in details in Supabase.
         """
         if not self.is_configured():
             raise ValueError("Supabase is not configured.")
@@ -155,6 +188,10 @@ class SupabaseAuthService:
                         "full_name": user_data.get("user_metadata", {}).get("full_name") or email.split("@")[0],
                         "created_at": user_data.get("created_at")
                     }
+
+                    # Automatically sync latest user details into Supabase public.profiles table
+                    self._sync_public_profile(user_dict["id"], user_dict["email"], user_dict["full_name"], access_token)
+
                     return user_dict, access_token
                 else:
                     error_msg = data.get("error_description") or data.get("msg") or data.get("message") or "Invalid email or password."

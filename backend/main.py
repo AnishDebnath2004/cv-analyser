@@ -328,6 +328,42 @@ async def get_settings():
     }
 
 
+def _persist_to_env(updates: Dict[str, str]):
+    """Persist updated configuration to root .env file if available."""
+    try:
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        
+        env_dict = {}
+        for line in lines:
+            line_str = line.strip()
+            if line_str and not line_str.startswith("#") and "=" in line_str:
+                k, v = line_str.split("=", 1)
+                env_dict[k.strip()] = v.strip()
+
+        for k, v in updates.items():
+            if v:
+                env_dict[k.upper()] = v
+
+        output_lines = [
+            "# PathFinder AI Environment Configuration\n",
+            f"SUPABASE_URL={env_dict.get('SUPABASE_URL', '')}\n",
+            f"SUPABASE_KEY={env_dict.get('SUPABASE_KEY', '')}\n",
+            f"GEMINI_API_KEY={env_dict.get('GEMINI_API_KEY', '')}\n",
+            f"ONET_API_VERSION={env_dict.get('ONET_API_VERSION', 'v2')}\n",
+            f"ONET_API_KEY={env_dict.get('ONET_API_KEY', '')}\n",
+            f"ONET_USERNAME={env_dict.get('ONET_USERNAME', '')}\n",
+            f"ONET_PASSWORD={env_dict.get('ONET_PASSWORD', '')}\n"
+        ]
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(output_lines)
+    except Exception as e:
+        logger.info(f"Notice: Could not write to .env (serverless or read-only): {e}")
+
+
 @api_router.post("/settings")
 async def update_settings(settings: SettingsModel):
     """Update runtime O*NET, Gemini, and Supabase credentials."""
@@ -351,6 +387,9 @@ async def update_settings(settings: SettingsModel):
         runtime_settings["supabase_url"],
         runtime_settings["supabase_key"]
     )
+
+    # Persist to .env file for future restarts
+    _persist_to_env(runtime_settings)
 
     onet_service = get_onet_service()
     connection_test = await onet_service.test_connection()
