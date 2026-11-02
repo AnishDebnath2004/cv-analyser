@@ -209,3 +209,4 @@ class SupabaseAuthService:
         except Exception as e:
             logger.warning(f"Error signing out from Supabase: {e}")
             return False
+

@@ -89,3 +89,4 @@ drop policy if exists "Users can delete own CV evaluations" on public.cv_evaluat
 create policy "Users can delete own CV evaluations"
   on public.cv_evaluations for delete
   using (auth.uid() = user_id);
+
