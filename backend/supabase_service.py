@@ -194,7 +194,10 @@ class SupabaseAuthService:
 
                     return user_dict, access_token
                 else:
+                    error_code = data.get("error_code")
                     error_msg = data.get("error_description") or data.get("msg") or data.get("message") or "Invalid email or password."
+                    if error_code == "email_not_confirmed" or "not confirmed" in error_msg.lower():
+                        raise ValueError("Email not confirmed yet. Please verify your email via the confirmation link, or disable 'Confirm email' in Supabase Dashboard (Authentication -> Providers -> Email).")
                     raise ValueError(f"Supabase Login: {error_msg}")
         except ValueError:
             raise

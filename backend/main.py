@@ -132,10 +132,14 @@ async def register_user(payload: UserRegisterRequest):
             full_name=payload.full_name,
             password=payload.password
         )
+        msg = "Account registered successfully in Supabase"
+        if token.startswith("pending_confirmation"):
+            msg = "Account created in Supabase! If email confirmation is required, please check your email, or proceed to Log In."
+            token = ""
         return AuthResponse(
             user=UserResponse(**user_dict),
             token=token,
-            message="Account registered successfully"
+            message=msg
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
