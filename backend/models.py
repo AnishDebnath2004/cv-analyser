@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 
@@ -125,6 +125,8 @@ class SettingsModel(BaseModel):
     onet_password: Optional[str] = ""
     onet_version: str = "v2"  # "v2" or "v1.9"
     gemini_api_key: Optional[str] = ""
+    supabase_url: Optional[str] = ""
+    supabase_key: Optional[str] = ""
 
 
 class UserRegisterRequest(BaseModel):
@@ -139,7 +141,7 @@ class UserLoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: Union[int, str]
     email: str
     full_name: str
     created_at: Optional[str] = None

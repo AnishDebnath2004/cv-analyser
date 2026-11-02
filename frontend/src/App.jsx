@@ -12,6 +12,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
   const [onetStatus, setOnetStatus] = useState({ connected: false, message: 'O*NET Knowledge Base Active' });
+  const [authProvider, setAuthProvider] = useState('sqlite');
   const [selectedOccupation, setSelectedOccupation] = useState(null);
 
   // Authentication state
@@ -28,6 +29,9 @@ export default function App() {
           connected: data.onet_credentials_present,
           message: data.onet_credentials_present ? 'O*NET Live Web Services Active' : 'O*NET Curated Taxonomy Active',
         });
+        if (data.auth_provider) {
+          setAuthProvider(data.auth_provider);
+        }
       })
       .catch((err) => console.error('Error fetching health:', err));
 
@@ -157,6 +161,7 @@ export default function App() {
         onReset={handleReset}
         hasResult={Boolean(analysisResult)}
         onetStatus={onetStatus}
+        authProvider={authProvider}
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
         onLogout={handleLogout}

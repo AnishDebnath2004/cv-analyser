@@ -1,10 +1,27 @@
 import os
+import sys
 import sqlite3
 import secrets
 import hashlib
 import shutil
+import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
+
+# Ensure current and parent directories are on sys.path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_current_dir)
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+try:
+    from backend.supabase_service import SupabaseAuthService
+except ImportError:
+    from supabase_service import SupabaseAuthService
+
+logger = logging.getLogger("auth_service")
 
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
@@ -60,7 +77,9 @@ def verify_password(password: str, password_hash: str, salt_hex: str) -> bool:
     return secrets.compare_digest(recalculated_hash, password_hash)
 
 
-class AuthService:
+class SQLiteAuthService:
+    """Fallback local/serverless SQLite database for user authentication and sessions."""
+
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
         self._init_db()
@@ -99,7 +118,7 @@ class AuthService:
                 )
                 conn.commit()
 
-                # Ensure a default demo user exists for easy testing
+                # Ensure a default demo user exists for instant testing
                 cursor.execute("SELECT id FROM users WHERE email = ?", ("demo@pathfinder.ai",))
                 if not cursor.fetchone():
                     pw_hash, salt_hex = hash_password("demo1234")
@@ -109,10 +128,9 @@ class AuthService:
                     )
                     conn.commit()
         except Exception as e:
-            print(f"Notice: SQLite DB init deferred or read-only: {e}")
+            logger.info(f"SQLite DB init info: {e}")
 
     def register(self, email: str, full_name: str, password: str) -> Tuple[Dict[str, Any], str]:
-        """Register a new user and generate a session token."""
         email = email.strip().lower()
         full_name = full_name.strip()
 
@@ -154,7 +172,6 @@ class AuthService:
             return user_dict, token
 
     def login(self, email: str, password: str) -> Tuple[Dict[str, Any], str]:
-        """Verify user credentials and create a session token."""
         email = email.strip().lower()
         if not email or not password:
             raise ValueError("Email and password are required.")
@@ -186,7 +203,6 @@ class AuthService:
             return user_dict, token
 
     def get_user_by_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Retrieve user associated with the given session token."""
         if not token:
             return None
 
@@ -207,7 +223,6 @@ class AuthService:
             return None
 
     def logout(self, token: str) -> bool:
-        """Invalidate the session token."""
         if not token:
             return False
 
@@ -218,5 +233,72 @@ class AuthService:
             return cursor.rowcount > 0
 
 
-auth_service = AuthService()
+class UnifiedAuthService:
+    """
+    Unified User Authentication & Session Database manager.
+    Uses Supabase (Cloud PostgreSQL Auth & DB) when credentials are provided,
+    with automatic graceful fallback to SQLite for local development.
+    """
 
+    def __init__(self):
+        self.sqlite = SQLiteAuthService()
+        self.supabase = SupabaseAuthService()
+
+    @property
+    def provider(self) -> str:
+        """Return the active database provider ('supabase' or 'sqlite')."""
+        return "supabase" if self.supabase.is_configured() else "sqlite"
+
+    def is_supabase_active(self) -> bool:
+        return self.supabase.is_configured()
+
+    def update_supabase_credentials(self, supabase_url: str, supabase_key: str):
+        """Update Supabase credentials at runtime."""
+        self.supabase.update_credentials(supabase_url, supabase_key)
+
+    def test_supabase_connection(self) -> Dict[str, Any]:
+        """Test connection to the configured Supabase instance."""
+        return self.supabase.test_connection()
+
+    def register(self, email: str, full_name: str, password: str) -> Tuple[Dict[str, Any], str]:
+        """Register a new user in Supabase (or fallback SQLite)."""
+        if self.is_supabase_active():
+            return self.supabase.register(email=email, full_name=full_name, password=password)
+        return self.sqlite.register(email=email, full_name=full_name, password=password)
+
+    def login(self, email: str, password: str) -> Tuple[Dict[str, Any], str]:
+        """Authenticate user and return session token."""
+        if self.is_supabase_active():
+            try:
+                return self.supabase.login(email=email, password=password)
+            except Exception as e:
+                # If login fails on Supabase, check if user is using the demo account on SQLite
+                if email.strip().lower() == "demo@pathfinder.ai":
+                    try:
+                        return self.sqlite.login(email=email, password=password)
+                    except Exception:
+                        pass
+                raise e
+
+        return self.sqlite.login(email=email, password=password)
+
+    def get_user_by_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Validate session token and return user profile."""
+        if self.is_supabase_active():
+            user = self.supabase.get_user_by_token(token)
+            if user:
+                return user
+
+        # Also check SQLite for local/demo sessions
+        return self.sqlite.get_user_by_token(token)
+
+    def logout(self, token: str) -> bool:
+        """Invalidate session token."""
+        success = False
+        if self.is_supabase_active():
+            success = self.supabase.logout(token)
+        sqlite_success = self.sqlite.logout(token)
+        return success or sqlite_success
+
+
+auth_service = UnifiedAuthService()

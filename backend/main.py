@@ -65,7 +65,9 @@ runtime_settings = {
     "onet_username": os.getenv("ONET_USERNAME", ""),
     "onet_password": os.getenv("ONET_PASSWORD", ""),
     "onet_version": os.getenv("ONET_API_VERSION", "v2"),
-    "gemini_api_key": os.getenv("GEMINI_API_KEY", "")
+    "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+    "supabase_url": os.getenv("SUPABASE_URL", ""),
+    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
 }
 
 def get_onet_service() -> ONetService:
@@ -94,7 +96,9 @@ async def health_check():
         return {
             "status": "healthy",
             "onet_credentials_present": onet_service.has_credentials(),
-            "gemini_configured": bool(runtime_settings["gemini_api_key"])
+            "gemini_configured": bool(runtime_settings["gemini_api_key"]),
+            "auth_provider": auth_service.provider,
+            "supabase_active": auth_service.is_supabase_active()
         }
     except Exception as e:
         logger.error(f"Health check error: {e}")
@@ -102,6 +106,16 @@ async def health_check():
             "status": "degraded",
             "error": str(e)
         }
+
+
+@api_router.get("/auth/provider")
+async def get_auth_provider():
+    """Get the active authentication and database provider."""
+    return {
+        "provider": auth_service.provider,
+        "supabase_active": auth_service.is_supabase_active(),
+        "supabase_configured": bool(runtime_settings["supabase_url"] and runtime_settings["supabase_key"])
+    }
 
 
 # ==========================================
@@ -306,13 +320,17 @@ async def get_settings():
         "onet_api_key_set": bool(runtime_settings["onet_api_key"]),
         "onet_username_set": bool(runtime_settings["onet_username"]),
         "onet_version": runtime_settings["onet_version"],
-        "gemini_api_key_set": bool(runtime_settings["gemini_api_key"])
+        "gemini_api_key_set": bool(runtime_settings["gemini_api_key"]),
+        "supabase_url_set": bool(runtime_settings["supabase_url"]),
+        "supabase_key_set": bool(runtime_settings["supabase_key"]),
+        "auth_provider": auth_service.provider,
+        "supabase_active": auth_service.is_supabase_active()
     }
 
 
 @api_router.post("/settings")
 async def update_settings(settings: SettingsModel):
-    """Update runtime O*NET and Gemini API keys."""
+    """Update runtime O*NET, Gemini, and Supabase credentials."""
     if settings.onet_api_key is not None:
         runtime_settings["onet_api_key"] = settings.onet_api_key.strip()
     if settings.onet_username is not None:
@@ -323,15 +341,35 @@ async def update_settings(settings: SettingsModel):
         runtime_settings["onet_version"] = settings.onet_version.strip()
     if settings.gemini_api_key is not None:
         runtime_settings["gemini_api_key"] = settings.gemini_api_key.strip()
+    if settings.supabase_url is not None:
+        runtime_settings["supabase_url"] = settings.supabase_url.strip()
+    if settings.supabase_key is not None:
+        runtime_settings["supabase_key"] = settings.supabase_key.strip()
+
+    # Update Supabase runtime service
+    auth_service.update_supabase_credentials(
+        runtime_settings["supabase_url"],
+        runtime_settings["supabase_key"]
+    )
 
     onet_service = get_onet_service()
     connection_test = await onet_service.test_connection()
+    supabase_test = auth_service.test_supabase_connection() if auth_service.is_supabase_active() else None
 
     return {
         "status": "Settings updated",
         "onet_connection": connection_test,
-        "gemini_configured": bool(runtime_settings["gemini_api_key"])
+        "supabase_connection": supabase_test,
+        "gemini_configured": bool(runtime_settings["gemini_api_key"]),
+        "auth_provider": auth_service.provider,
+        "supabase_active": auth_service.is_supabase_active()
     }
+
+
+@api_router.post("/supabase/test")
+async def test_supabase_connection():
+    """Test connection to the configured Supabase instance."""
+    return auth_service.test_supabase_connection()
 
 
 @api_router.post("/chat", response_model=ChatResponse)

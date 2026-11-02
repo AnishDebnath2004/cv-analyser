@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, ShieldCheck, Check, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { X, Key, ShieldCheck, Check, AlertCircle, RefreshCw, ExternalLink, Database, Server } from 'lucide-react';
 
 export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
   const [onetApiKey, setOnetApiKey] = useState('');
@@ -7,9 +7,14 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
   const [onetPassword, setOnetPassword] = useState('');
   const [onetVersion, setOnetVersion] = useState('v2');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseKey, setSupabaseKey] = useState('');
+  const [authProvider, setAuthProvider] = useState('sqlite');
   const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [supabaseTestResult, setSupabaseTestResult] = useState(null);
+  const [isTestingSupabase, setIsTestingSupabase] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -18,6 +23,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
         .then((res) => res.json())
         .then((data) => {
           setOnetVersion(data.onet_version || 'v2');
+          setAuthProvider(data.auth_provider || 'sqlite');
         })
         .catch(() => {});
     }
@@ -39,6 +45,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
           onet_password: onetPassword,
           onet_version: onetVersion,
           gemini_api_key: geminiApiKey,
+          supabase_url: supabaseUrl,
+          supabase_key: supabaseKey,
         }),
       });
 
@@ -55,6 +63,40 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
     }
   };
 
+  const handleTestSupabase = async () => {
+    setIsTestingSupabase(true);
+    setSupabaseTestResult(null);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          onet_api_key: onetApiKey,
+          onet_username: onetUsername,
+          onet_password: onetPassword,
+          onet_version: onetVersion,
+          gemini_api_key: geminiApiKey,
+          supabase_url: supabaseUrl,
+          supabase_key: supabaseKey,
+        }),
+      });
+
+      const res = await fetch('/api/supabase/test', { method: 'POST' });
+      const data = await res.json();
+      setSupabaseTestResult(data);
+      if (data.success) {
+        setAuthProvider('supabase');
+      }
+    } catch (err) {
+      setSupabaseTestResult({
+        success: false,
+        message: 'Failed to connect: ' + err.message,
+      });
+    } finally {
+      setIsTestingSupabase(false);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -68,6 +110,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
           onet_password: onetPassword,
           onet_version: onetVersion,
           gemini_api_key: geminiApiKey,
+          supabase_url: supabaseUrl,
+          supabase_key: supabaseKey,
         }),
       });
       const data = await res.json();
@@ -237,6 +281,105 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdated }) {
                 <ExternalLink size={12} />
               </a>
             </div>
+          </div>
+
+          {/* Supabase User Authentication & Session Database */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Database size={16} color="#3ecf8e" />
+                <span>Supabase Auth & Session Database</span>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '3px 8px',
+                  borderRadius: 12,
+                  background: authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                  color: authProvider === 'supabase' ? '#3ecf8e' : 'var(--text-muted)',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                <Server size={10} />
+                Active: {authProvider === 'supabase' ? 'Supabase PostgreSQL' : 'SQLite Local'}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+              Connect your Supabase project to store registered users, passwords, and sessions in a production PostgreSQL cloud database.
+            </p>
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Supabase Project URL
+              </label>
+              <input
+                type="text"
+                className="chat-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                placeholder="https://xyzproject.supabase.co"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Supabase Anon / Public API Key
+              </label>
+              <input
+                type="password"
+                className="chat-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value={supabaseKey}
+                onChange={(e) => setSupabaseKey(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <a
+                href="https://supabase.com/dashboard"
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: '0.78rem', color: '#3ecf8e', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+              >
+                <span>Get Supabase URL & Anon Key</span>
+                <ExternalLink size={12} />
+              </a>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                onClick={handleTestSupabase}
+                disabled={isTestingSupabase}
+              >
+                {isTestingSupabase ? <RefreshCw size={13} className="radar-spinner" style={{ width: 13, height: 13, margin: 0 }} /> : <RefreshCw size={13} />}
+                <span>Test Supabase Ping</span>
+              </button>
+            </div>
+
+            {supabaseTestResult && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 10,
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.82rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: supabaseTestResult.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: supabaseTestResult.success ? '#34d399' : '#f87171',
+                }}
+              >
+                {supabaseTestResult.success ? <Check size={16} /> : <AlertCircle size={16} />}
+                <span>{supabaseTestResult.message}</span>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

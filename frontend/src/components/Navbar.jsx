@@ -18,6 +18,7 @@ export default function Navbar({
   onReset,
   hasResult,
   onetStatus,
+  authProvider = 'sqlite',
   currentUser,
   onOpenAuth,
   onLogout
@@ -43,6 +44,21 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
+        {/* Auth Database Status Pill */}
+        <div 
+          className="badge"
+          style={{
+            background: authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+            color: authProvider === 'supabase' ? '#3ecf8e' : 'var(--text-muted)',
+            border: `1px solid ${authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.25)' : 'var(--border-subtle)'}`,
+            gap: 5
+          }}
+          title={authProvider === 'supabase' ? 'Connected to Supabase PostgreSQL Cloud Database' : 'Using Local SQLite Database'}
+        >
+          <Database size={13} color={authProvider === 'supabase' ? '#3ecf8e' : 'currentColor'} />
+          <span>{authProvider === 'supabase' ? 'Supabase DB' : 'SQLite DB'}</span>
+        </div>
+
         {/* O*NET Knowledge Base Status Pill */}
         <div 
           className={`badge ${onetStatus?.connected ? 'badge-emerald' : 'badge-primary'}`}

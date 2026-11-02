@@ -273,6 +273,11 @@ export default function AuthSection({
             )}
           </button>
         </div>
+
+        <div style={{ textAlign: 'center', marginTop: 14, fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3ecf8e', display: 'inline-block' }}></span>
+          <span>Authentication & Sessions backed by Supabase PostgreSQL</span>
+        </div>
       </form>
     </div>
   );

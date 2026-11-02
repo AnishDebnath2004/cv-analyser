@@ -63,6 +63,9 @@ cv-analyser/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI server with upload, search, and chat endpoints
 │   ├── models.py            # Pydantic data schemas
+│   ├── auth_service.py      # Unified Authentication & Session manager
+│   ├── supabase_service.py  # Supabase Auth (GoTrue) & PostgreSQL API client
+│   ├── supabase_schema.sql  # Supabase PostgreSQL schema with RLS security policies
 │   ├── onet_taxonomy.py     # Official O*NET standard taxonomy & reference database
 │   ├── onet_service.py      # O*NET Web Services API client (v2/v1.9 dual mode)
 │   ├── resume_parser.py     # Multi-format PDF/DOCX/TXT parser & skill extractor
@@ -111,12 +114,30 @@ Then open your browser at:
 
 ---
 
-## ⚙️ O*NET & Gemini Configuration
+## ⚙️ O*NET, Supabase & Gemini Configuration
 
+### 1. Supabase User Authentication & Session Database
+To persist users and sessions in a cloud PostgreSQL database:
+1. Create a project at [supabase.com](https://supabase.com).
+2. Go to **Project Settings -> API** and copy:
+   - **Project URL** (e.g. `https://xyzproject.supabase.co`)
+   - **anon / public key** (`eyJhbGciOiJIUzI1NiIsIn...`)
+3. Add them to your `.env` file (or Vercel Environment Variables):
+   ```bash
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=your-supabase-anon-key
+   ```
+   *Or configure them directly in the app by clicking **Settings** in the top navigation.*
+4. *(Optional)* Run [`backend/supabase_schema.sql`](file:///d:/cv-analyser/backend/supabase_schema.sql) in your Supabase project's **SQL Editor** to create synchronized `profiles` and `cv_evaluations` tables with Row Level Security (RLS).
+5. If Supabase credentials are not provided, PathFinder AI automatically falls back to local SQLite storage for seamless offline development.
+
+### 2. O*NET Web Services API
 1. In the web interface, click **Settings** (top right navigation).
 2. To use your live O*NET Web Services account:
    - Select **API v2.0** and paste your `X-API-Key`, or
    - Select **API v1.9** and enter your O*NET developer username and password.
    - Click **Test O*NET Ping** to verify connectivity with the official O*NET servers.
-3. *(Optional)* Add your **Google Gemini API Key** for enhanced personalized narrative synthesis.
-4. Click **Save Configuration**.
+
+### 3. Google Gemini AI Agent
+1. Add your **Google Gemini API Key** for enhanced personalized narrative synthesis and interactive career chat.
+2. Click **Save Configuration**.
