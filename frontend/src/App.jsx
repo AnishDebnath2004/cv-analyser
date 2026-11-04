@@ -214,7 +214,6 @@ export default function App() {
         setTheme={handleToggleQuickTheme}
         onReset={handleReset}
         hasResult={Boolean(analysisResult)}
-        onetStatus={onetStatus}
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
         onOpenSettings={openSettings}

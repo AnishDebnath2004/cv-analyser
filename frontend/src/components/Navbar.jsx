@@ -4,13 +4,11 @@ import {
   Compass,
   Moon,
   Sun,
-  CheckCircle,
   Database,
   LogIn,
   UserPlus,
   LogOut,
   User,
-  ShieldCheck,
   Settings
 } from 'lucide-react';
 
@@ -19,7 +17,6 @@ export default function Navbar({
   setTheme,
   onReset,
   hasResult,
-  onetStatus,
   currentUser,
   onOpenAuth,
   onOpenSettings,
@@ -60,24 +57,6 @@ export default function Navbar({
           <span>Supabase Cloud</span>
         </div>
 
-        {/* O*NET Knowledge Base Status Pill */}
-        <div 
-          className={`badge ${onetStatus?.connected ? 'badge-emerald' : 'badge-primary'}`}
-          title={onetStatus?.message || "O*NET Knowledge Base Active"}
-        >
-          {onetStatus?.connected ? (
-            <>
-              <CheckCircle size={13} />
-              <span>O*NET Live API</span>
-            </>
-          ) : (
-            <>
-              <Database size={13} />
-              <span>O*NET Knowledge Base</span>
-            </>
-          )}
-        </div>
-
         {hasResult && (
           <button className="btn-secondary" onClick={onReset}>
             <Sparkles size={16} />
@@ -88,27 +67,6 @@ export default function Navbar({
         {/* Authentication Actions */}
         {currentUser ? (
           <div className="nav-user-container">
-            {/* 2FA Security Pill -> Opens Settings to MFA tab */}
-            <button
-              type="button"
-              className="btn-ghost nav-mfa-btn"
-              onClick={() => onOpenSettings('mfa')}
-              title="Configure Two-Factor Authentication (2FA / MFA)"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 12px',
-                fontSize: '0.84rem',
-                border: currentUser.mfa_enabled ? '1px solid rgba(62, 207, 142, 0.4)' : '1px solid var(--border-subtle)',
-                background: currentUser.mfa_enabled ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
-                color: currentUser.mfa_enabled ? '#3ecf8e' : 'var(--text-muted)'
-              }}
-            >
-              <ShieldCheck size={16} color={currentUser.mfa_enabled ? '#3ecf8e' : 'currentColor'} />
-              <span>{currentUser.mfa_enabled ? '2FA Active' : '2FA Security'}</span>
-            </button>
-
             <div className="nav-user-pill" title={`Signed in as ${currentUser.email}`}>
               <div className="nav-user-avatar">
                 {currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User size={14} />}
