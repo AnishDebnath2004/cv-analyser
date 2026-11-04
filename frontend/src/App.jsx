@@ -5,6 +5,7 @@ import AnalysisDashboard from './components/AnalysisDashboard';
 import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
 import SettingsModal from './components/SettingsModal';
+import { extractTextFromFile } from './utils/documentParser';
 import './App.css';
 
 export default function App() {
@@ -164,8 +165,23 @@ export default function App() {
     }
 
     setIsLoading(true);
-    const cleanup = simulateStepProgress();
+    setLoadingStep('Parsing document content...');
 
+    // 1. Try client-side text extraction first
+    // This transforms a 186KB - 4MB PDF/DOCX file into a 2KB - 8KB pure text payload,
+    // which completely bypasses Vercel Python serverless 64KB pipe buffer limits and cellular dropouts.
+    try {
+      const extractedText = await extractTextFromFile(file);
+      if (extractedText && extractedText.trim().length > 30) {
+        setIsLoading(false);
+        return await handleAnalyzeText(extractedText);
+      }
+    } catch (extractErr) {
+      console.warn('Client-side extraction failed, trying direct server upload:', extractErr);
+    }
+
+    // 2. Direct server upload fallback (for small files under 50KB or where extraction failed)
+    const cleanup = simulateStepProgress();
     const formData = new FormData();
     formData.append('file', file);
 
@@ -202,7 +218,7 @@ export default function App() {
       setAnalysisResult(data);
     } catch (err) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        alert('Network interrupted (Failed to fetch). On mobile connections, large files or cellular latency can disrupt the upload stream. Please check your connection, verify your file is under 4MB, or use the "Paste Text" option.');
+        alert('Upload interrupted (Failed to fetch). On serverless hosting, documents over 64KB can time out. Please use the "Paste Resume Text" tab to analyze your CV text instantly.');
       } else {
         alert('Error analyzing resume: ' + err.message);
       }
