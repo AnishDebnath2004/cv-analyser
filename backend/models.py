@@ -144,11 +144,41 @@ class UserResponse(BaseModel):
     id: Union[int, str]
     email: str
     full_name: str
+    mfa_enabled: Optional[bool] = False
     created_at: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
-    user: UserResponse
-    token: str
+    user: Optional[UserResponse] = None
+    token: Optional[str] = ""
     message: str = "Success"
+    mfa_required: Optional[bool] = False
+    temp_token: Optional[str] = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+
+class MfaVerifyLoginRequest(BaseModel):
+    temp_token: str
+    code: str
+
+
+class MfaEnableRequest(BaseModel):
+    secret: str
+    code: str
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str
+    otpauth_url: str
+    qr_preview_url: str
+    manual_entry_key: str
 

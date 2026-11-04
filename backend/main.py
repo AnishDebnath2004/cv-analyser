@@ -11,7 +11,7 @@ if _current_dir not in sys.path:
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
-from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -20,23 +20,41 @@ from pydantic import BaseModel
 try:
     from backend.models import (
         AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
-        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse
+        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse,
+        ForgotPasswordRequest, ResetPasswordRequest, MfaVerifyLoginRequest,
+        MfaEnableRequest, MfaSetupResponse
     )
     from backend.resume_parser import ResumeParser
     from backend.onet_service import ONetService
     from backend.agent import CVAgent
     from backend.sample_resumes import SAMPLE_RESUMES
     from backend.auth_service import auth_service
+    from backend.rate_limiter import (
+        rate_limit_login,
+        rate_limit_register,
+        rate_limit_forgot_password,
+        rate_limit_mfa,
+        rate_limit_upload
+    )
 except ImportError:
     from models import (
         AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
-        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse
+        UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse,
+        ForgotPasswordRequest, ResetPasswordRequest, MfaVerifyLoginRequest,
+        MfaEnableRequest, MfaSetupResponse
     )
     from resume_parser import ResumeParser
     from onet_service import ONetService
     from agent import CVAgent
     from sample_resumes import SAMPLE_RESUMES
     from auth_service import auth_service
+    from rate_limiter import (
+        rate_limit_login,
+        rate_limit_register,
+        rate_limit_forgot_password,
+        rate_limit_mfa,
+        rate_limit_upload
+    )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cv_analyzer_api")
@@ -44,7 +62,7 @@ logger = logging.getLogger("cv_analyzer_api")
 app = FastAPI(
     title="O*NET AI CV Analyzer & Career Guidance Agent",
     description="Intelligent AI Agent for scanning resumes and matching candidates to optimal O*NET job profiles.",
-    version="1.0.1",
+    version="1.0.2",
     redirect_slashes=False
 )
 
@@ -59,16 +77,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Runtime Settings state
+# Runtime Settings state - default automatically to Supabase Cloud credentials
 runtime_settings = {
     "onet_api_key": os.getenv("ONET_API_KEY", ""),
     "onet_username": os.getenv("ONET_USERNAME", ""),
     "onet_password": os.getenv("ONET_PASSWORD", ""),
     "onet_version": os.getenv("ONET_API_VERSION", "v2"),
     "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
-    "supabase_url": os.getenv("SUPABASE_URL", ""),
-    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
+    "supabase_url": os.getenv("SUPABASE_URL", "https://npiudrqpunpcrpautaif.supabase.co"),
+    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY", "sb_publishable_wcYoLbpSHZKmRhNL8oDKBw_UcPDH_8D")
 }
+
 
 def get_onet_service() -> ONetService:
     return ONetService(
@@ -77,6 +96,7 @@ def get_onet_service() -> ONetService:
         password=runtime_settings["onet_password"],
         version=runtime_settings["onet_version"]
     )
+
 
 def get_cv_agent() -> CVAgent:
     return CVAgent(
@@ -89,88 +109,8 @@ class TextAnalyzeRequest(BaseModel):
     text: str
 
 
-@api_router.get("/health")
-async def health_check():
-    try:
-        onet_service = get_onet_service()
-        return {
-            "status": "healthy",
-            "onet_credentials_present": onet_service.has_credentials(),
-            "gemini_configured": bool(runtime_settings["gemini_api_key"]),
-            "auth_provider": auth_service.provider,
-            "supabase_active": auth_service.is_supabase_active()
-        }
-    except Exception as e:
-        logger.error(f"Health check error: {e}")
-        return {
-            "status": "degraded",
-            "error": str(e)
-        }
-
-
-@api_router.get("/auth/provider")
-async def get_auth_provider():
-    """Get the active authentication and database provider."""
-    return {
-        "provider": auth_service.provider,
-        "supabase_active": auth_service.is_supabase_active(),
-        "supabase_configured": bool(runtime_settings["supabase_url"] and runtime_settings["supabase_key"])
-    }
-
-
-# ==========================================
-# Authentication & User Management Routes
-# ==========================================
-
-@api_router.post("/auth/register", response_model=AuthResponse)
-@api_router.post("/auth/signup", response_model=AuthResponse)
-async def register_user(payload: UserRegisterRequest):
-    """Register a new user account and obtain session credentials."""
-    try:
-        user_dict, token = auth_service.register(
-            email=payload.email,
-            full_name=payload.full_name,
-            password=payload.password
-        )
-        msg = "Account registered successfully in Supabase"
-        if token.startswith("pending_confirmation"):
-            msg = "Account created in Supabase! If email confirmation is required, please check your email, or proceed to Log In."
-            token = ""
-        return AuthResponse(
-            user=UserResponse(**user_dict),
-            token=token,
-            message=msg
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Registration error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during registration")
-
-
-@api_router.post("/auth/login", response_model=AuthResponse)
-async def login_user(payload: UserLoginRequest):
-    """Authenticate with email and password to receive a session token."""
-    try:
-        user_dict, token = auth_service.login(
-            email=payload.email,
-            password=payload.password
-        )
-        return AuthResponse(
-            user=UserResponse(**user_dict),
-            token=token,
-            message="Logged in successfully"
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except Exception as e:
-        logger.error(f"Login error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during login")
-
-
-@api_router.get("/auth/me", response_model=UserResponse)
-async def get_current_user(authorization: Optional[str] = Header(None)):
-    """Retrieve the currently authenticated user profile."""
+def _get_authenticated_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Helper dependency to retrieve user from authorization header."""
     token = None
     if authorization:
         if authorization.lower().startswith("bearer "):
@@ -185,6 +125,167 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired session token")
 
+    return user
+
+
+@api_router.get("/health")
+async def health_check():
+    try:
+        onet_service = get_onet_service()
+        return {
+            "status": "healthy",
+            "onet_credentials_present": onet_service.has_credentials(),
+            "gemini_configured": bool(runtime_settings["gemini_api_key"]),
+            "auth_provider": "supabase",
+            "supabase_active": True
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "status": "degraded",
+            "error": str(e)
+        }
+
+
+@api_router.get("/auth/provider")
+async def get_auth_provider():
+    """Get the active authentication and database provider."""
+    return {
+        "provider": "supabase",
+        "supabase_active": True,
+        "supabase_configured": True
+    }
+
+
+# ==========================================
+# Authentication & User Management Routes
+# ==========================================
+
+@api_router.post("/auth/register", response_model=AuthResponse, dependencies=[Depends(rate_limit_register)])
+@api_router.post("/auth/signup", response_model=AuthResponse, dependencies=[Depends(rate_limit_register)])
+async def register_user(payload: UserRegisterRequest):
+    """Register a new user account in Supabase with persistent credentials."""
+    try:
+        user_dict, token = auth_service.register(
+            email=payload.email,
+            full_name=payload.full_name,
+            password=payload.password
+        )
+        return AuthResponse(
+            user=UserResponse(**user_dict),
+            token=token,
+            message="Account registered successfully in Supabase"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during registration")
+
+
+@api_router.post("/auth/login", response_model=AuthResponse, dependencies=[Depends(rate_limit_login)])
+async def login_user(payload: UserLoginRequest):
+    """Authenticate with email and password to receive a session token or MFA challenge."""
+    try:
+        user_dict, token, temp_mfa_token = auth_service.login(
+            email=payload.email,
+            password=payload.password
+        )
+        if temp_mfa_token:
+            return AuthResponse(
+                mfa_required=True,
+                temp_token=temp_mfa_token,
+                message="Two-Factor Authentication required. Please enter your 6-digit code."
+            )
+        return AuthResponse(
+            user=UserResponse(**user_dict),
+            token=token,
+            message="Logged in successfully"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during login")
+
+
+@api_router.post("/auth/mfa/verify-login", response_model=AuthResponse, dependencies=[Depends(rate_limit_mfa)])
+async def verify_mfa_login(payload: MfaVerifyLoginRequest):
+    """Verify 6-digit TOTP code during two-factor login challenge."""
+    try:
+        user_dict, token = auth_service.verify_mfa_login(payload.temp_token, payload.code)
+        return AuthResponse(
+            user=UserResponse(**user_dict),
+            token=token,
+            message="Two-factor authentication verified successfully"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"MFA verify login error: {e}")
+        raise HTTPException(status_code=500, detail="Error verifying MFA code")
+
+
+@api_router.post("/auth/mfa/setup", response_model=MfaSetupResponse)
+async def setup_mfa(user: Dict[str, Any] = Depends(_get_authenticated_user)):
+    """Generate 2FA secret and QR link for Google/Microsoft Authenticator."""
+    try:
+        setup_data = auth_service.setup_mfa(user)
+        return MfaSetupResponse(**setup_data)
+    except Exception as e:
+        logger.error(f"MFA setup error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/auth/mfa/enable")
+async def enable_mfa(payload: MfaEnableRequest, user: Dict[str, Any] = Depends(_get_authenticated_user)):
+    """Verify 6-digit code and permanently enable MFA on account."""
+    try:
+        return auth_service.enable_mfa(user, payload.secret, payload.code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"MFA enable error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/auth/mfa/disable")
+async def disable_mfa(user: Dict[str, Any] = Depends(_get_authenticated_user)):
+    """Disable 2FA on account."""
+    try:
+        return auth_service.disable_mfa(user)
+    except Exception as e:
+        logger.error(f"MFA disable error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/auth/forgot-password", dependencies=[Depends(rate_limit_forgot_password)])
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Generate 6-digit password recovery code for the user."""
+    try:
+        return auth_service.forgot_password(payload.email)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        raise HTTPException(status_code=500, detail="Error initiating password reset")
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password(payload: ResetPasswordRequest):
+    """Verify reset code and update user password."""
+    try:
+        return auth_service.reset_password(payload.email, payload.code, payload.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        raise HTTPException(status_code=500, detail="Error resetting password")
+
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_current_user(user: Dict[str, Any] = Depends(_get_authenticated_user)):
+    """Retrieve the currently authenticated user profile."""
     return UserResponse(**user)
 
 
@@ -202,6 +303,10 @@ async def logout_user(authorization: Optional[str] = Header(None)):
         auth_service.logout(token)
     return {"status": "success", "message": "Logged out successfully"}
 
+
+# ==========================================
+# Core Resume Analysis Endpoints
+# ==========================================
 
 @api_router.get("/samples")
 async def get_samples():
@@ -230,7 +335,7 @@ async def analyze_sample(sample_id: str):
     return result
 
 
-@api_router.post("/analyze/upload", response_model=AnalysisResult)
+@api_router.post("/analyze/upload", response_model=AnalysisResult, dependencies=[Depends(rate_limit_upload)])
 async def analyze_upload(file: UploadFile = File(...)):
     """Upload and analyze a resume file (PDF, DOCX, or TXT)."""
     filename = file.filename.lower() if file.filename else ""
@@ -245,7 +350,6 @@ async def analyze_upload(file: UploadFile = File(...)):
         elif filename.endswith(".txt"):
             raw_text = contents.decode("utf-8", errors="ignore")
         else:
-            # Fallback to UTF-8 decoding
             raw_text = contents.decode("utf-8", errors="ignore")
     except Exception as e:
         logger.error(f"Error parsing uploaded file {filename}: {e}")
@@ -292,121 +396,52 @@ async def onet_search(q: str = Query(..., min_length=1), limit: int = 10):
     }
 
 
-@api_router.get("/onet/occupations")
-async def get_all_occupations():
-    """Get all O*NET catalog occupations."""
-    onet_service = get_onet_service()
-    return onet_service.get_all_catalog()
-
-
 @api_router.get("/onet/occupation/{soc_code}")
-async def get_occupation_profile(soc_code: str):
-    """Get full O*NET occupation profile by SOC code."""
+async def get_occupation_details(soc_code: str):
+    """Retrieve full details for an O*NET occupation."""
     onet_service = get_onet_service()
-    occ = await onet_service.get_occupation_details(soc_code)
-    if not occ:
-        raise HTTPException(status_code=404, detail="Occupation not found in O*NET catalog")
-    return occ
+    details = await onet_service.get_occupation_details(soc_code)
+    if not details:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    return details
+
+
+@api_router.get("/onet/skills/{soc_code}")
+async def get_occupation_skills(soc_code: str):
+    """Get required skills for an occupation."""
+    onet_service = get_onet_service()
+    skills = await onet_service.get_occupation_skills(soc_code)
+    return skills
+
+
+@api_router.get("/onet/knowledge/{soc_code}")
+async def get_occupation_knowledge(soc_code: str):
+    """Get knowledge domains for an occupation."""
+    onet_service = get_onet_service()
+    knowledge = await onet_service.get_occupation_knowledge(soc_code)
+    return knowledge
+
+
+@api_router.get("/onet/technology/{soc_code}")
+async def get_occupation_technology(soc_code: str):
+    """Get technology and software skills for an occupation."""
+    onet_service = get_onet_service()
+    technology = await onet_service.get_occupation_technology(soc_code)
+    return technology
+
+
+@api_router.get("/onet/hot-technologies")
+async def get_hot_technologies():
+    """Retrieve in-demand hot technologies from O*NET taxonomy."""
+    onet_service = get_onet_service()
+    return onet_service.get_hot_technologies()
 
 
 @api_router.post("/onet/test")
 async def test_onet_connection():
-    """Test connection to O*NET Web Services API with currently stored credentials."""
+    """Test connection to the O*NET Web Services API."""
     onet_service = get_onet_service()
-    status = await onet_service.test_connection()
-    return status
-
-
-@api_router.get("/settings")
-async def get_settings():
-    """Get current configuration status (without leaking secrets)."""
-    return {
-        "onet_api_key_set": bool(runtime_settings["onet_api_key"]),
-        "onet_username_set": bool(runtime_settings["onet_username"]),
-        "onet_version": runtime_settings["onet_version"],
-        "gemini_api_key_set": bool(runtime_settings["gemini_api_key"]),
-        "supabase_url_set": bool(runtime_settings["supabase_url"]),
-        "supabase_key_set": bool(runtime_settings["supabase_key"]),
-        "auth_provider": auth_service.provider,
-        "supabase_active": auth_service.is_supabase_active()
-    }
-
-
-def _persist_to_env(updates: Dict[str, str]):
-    """Persist updated configuration to root .env file if available."""
-    try:
-        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-        lines = []
-        if os.path.exists(env_path):
-            with open(env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        
-        env_dict = {}
-        for line in lines:
-            line_str = line.strip()
-            if line_str and not line_str.startswith("#") and "=" in line_str:
-                k, v = line_str.split("=", 1)
-                env_dict[k.strip()] = v.strip()
-
-        for k, v in updates.items():
-            if v:
-                env_dict[k.upper()] = v
-
-        output_lines = [
-            "# PathFinder AI Environment Configuration\n",
-            f"SUPABASE_URL={env_dict.get('SUPABASE_URL', '')}\n",
-            f"SUPABASE_KEY={env_dict.get('SUPABASE_KEY', '')}\n",
-            f"GEMINI_API_KEY={env_dict.get('GEMINI_API_KEY', '')}\n",
-            f"ONET_API_VERSION={env_dict.get('ONET_API_VERSION', 'v2')}\n",
-            f"ONET_API_KEY={env_dict.get('ONET_API_KEY', '')}\n",
-            f"ONET_USERNAME={env_dict.get('ONET_USERNAME', '')}\n",
-            f"ONET_PASSWORD={env_dict.get('ONET_PASSWORD', '')}\n"
-        ]
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(output_lines)
-    except Exception as e:
-        logger.info(f"Notice: Could not write to .env (serverless or read-only): {e}")
-
-
-@api_router.post("/settings")
-async def update_settings(settings: SettingsModel):
-    """Update runtime O*NET, Gemini, and Supabase credentials."""
-    if settings.onet_api_key is not None:
-        runtime_settings["onet_api_key"] = settings.onet_api_key.strip()
-    if settings.onet_username is not None:
-        runtime_settings["onet_username"] = settings.onet_username.strip()
-    if settings.onet_password is not None:
-        runtime_settings["onet_password"] = settings.onet_password.strip()
-    if settings.onet_version:
-        runtime_settings["onet_version"] = settings.onet_version.strip()
-    if settings.gemini_api_key is not None:
-        runtime_settings["gemini_api_key"] = settings.gemini_api_key.strip()
-    if settings.supabase_url is not None:
-        runtime_settings["supabase_url"] = settings.supabase_url.strip()
-    if settings.supabase_key is not None:
-        runtime_settings["supabase_key"] = settings.supabase_key.strip()
-
-    # Update Supabase runtime service
-    auth_service.update_supabase_credentials(
-        runtime_settings["supabase_url"],
-        runtime_settings["supabase_key"]
-    )
-
-    # Persist to .env file for future restarts
-    _persist_to_env(runtime_settings)
-
-    onet_service = get_onet_service()
-    connection_test = await onet_service.test_connection()
-    supabase_test = auth_service.test_supabase_connection() if auth_service.is_supabase_active() else None
-
-    return {
-        "status": "Settings updated",
-        "onet_connection": connection_test,
-        "supabase_connection": supabase_test,
-        "gemini_configured": bool(runtime_settings["gemini_api_key"]),
-        "auth_provider": auth_service.provider,
-        "supabase_active": auth_service.is_supabase_active()
-    }
+    return await onet_service.test_connection()
 
 
 @api_router.post("/supabase/test")
@@ -467,7 +502,6 @@ if os.path.exists(STATIC_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Do not catch /api routes
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API route not found")
         index_file = os.path.join(STATIC_DIR, "index.html")

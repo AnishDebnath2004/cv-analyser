@@ -1,0 +1,13 @@
+{
+  "demo@pathfinder.ai": {
+    "id": "demo-0000-0000-0000-000000000001",
+    "email": "demo@pathfinder.ai",
+    "full_name": "Alex Morgan",
+    "password_hash": "f7e36b9ce01541e44c77713790782c92f57833b8e5e4908bab52a222c4cb2b85",
+    "salt": "91746125455b477f3d2a5d0094c6294f",
+    "mfa_enabled": false,
+    "mfa_secret": null,
+    "created_at": "2026-11-04T20:56:45.742584",
+    "last_login": "2026-11-04T20:56:45.742618"
+  }
+}

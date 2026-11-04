@@ -4,7 +4,7 @@ import UploadSection from './components/UploadSection';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
-import SettingsModal from './components/SettingsModal';
+import MfaModal from './components/MfaModal';
 import './App.css';
 
 export default function App() {
@@ -13,14 +13,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
   const [onetStatus, setOnetStatus] = useState({ connected: false, message: 'O*NET Knowledge Base Active' });
-  const [authProvider, setAuthProvider] = useState('sqlite');
   const [selectedOccupation, setSelectedOccupation] = useState(null);
 
   // Authentication state
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login'); // 'login' | 'signup'
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [mfaModalOpen, setMfaModalOpen] = useState(false);
 
   // Fetch health and check existing auth session on mount
   useEffect(() => {
@@ -31,9 +30,6 @@ export default function App() {
           connected: data.onet_credentials_present,
           message: data.onet_credentials_present ? 'O*NET Live Web Services Active' : 'O*NET Curated Taxonomy Active',
         });
-        if (data.auth_provider) {
-          setAuthProvider(data.auth_provider);
-        }
       })
       .catch((err) => console.error('Error fetching health:', err));
 
@@ -59,9 +55,13 @@ export default function App() {
   }, []);
 
   const handleAuthSuccess = (user, token) => {
-    localStorage.setItem('pathfinder_token', token);
-    localStorage.setItem('pathfinder_user', JSON.stringify(user));
-    setCurrentUser(user);
+    if (token) {
+      localStorage.setItem('pathfinder_token', token);
+    }
+    if (user) {
+      localStorage.setItem('pathfinder_user', JSON.stringify(user));
+      setCurrentUser(user);
+    }
   };
 
   const handleLogout = async () => {
@@ -155,18 +155,6 @@ export default function App() {
     setAnalysisResult(null);
   };
 
-  const handleSettingsUpdated = (data) => {
-    if (data.auth_provider) {
-      setAuthProvider(data.auth_provider);
-    }
-    if (data.onet_connection) {
-      setOnetStatus({
-        connected: data.onet_connection.success,
-        message: data.onet_connection.message || (data.onet_connection.success ? 'O*NET Live Web Services Active' : 'O*NET Curated Taxonomy Active'),
-      });
-    }
-  };
-
   return (
     <div className="app-container">
       <Navbar
@@ -175,10 +163,9 @@ export default function App() {
         onReset={handleReset}
         hasResult={Boolean(analysisResult)}
         onetStatus={onetStatus}
-        authProvider={authProvider}
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
-        onOpenSettings={() => setSettingsModalOpen(true)}
+        onOpenMfa={() => setMfaModalOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -212,10 +199,12 @@ export default function App() {
         onAuthSuccess={handleAuthSuccess}
       />
 
-      <SettingsModal
-        isOpen={settingsModalOpen}
-        onClose={() => setSettingsModalOpen(false)}
-        onSettingsUpdated={handleSettingsUpdated}
+      <MfaModal
+        isOpen={mfaModalOpen}
+        onClose={() => setMfaModalOpen(false)}
+        currentUser={currentUser}
+        authToken={localStorage.getItem('pathfinder_token')}
+        onUserUpdated={setCurrentUser}
       />
     </div>
   );

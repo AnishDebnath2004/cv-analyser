@@ -6,6 +6,6 @@
     "node": ">=22.x"
   },
   "scripts": {
-    "build": "cd frontend && npm install --no-package-lock && npm run build"
+    "build": "cd frontend && npm install --no-package-lock && npm run build && node -e \"const fs=require('fs'); fs.cpSync('dist', '../static', {recursive: true});\""
   }
 }

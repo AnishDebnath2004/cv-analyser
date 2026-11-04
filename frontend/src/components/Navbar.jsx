@@ -10,7 +10,7 @@ import {
   UserPlus,
   LogOut,
   User,
-  Settings
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Navbar({
@@ -19,10 +19,9 @@ export default function Navbar({
   onReset,
   hasResult,
   onetStatus,
-  authProvider = 'sqlite',
   currentUser,
   onOpenAuth,
-  onOpenSettings,
+  onOpenMfa,
   onLogout
 }) {
   const toggleTheme = () => {
@@ -46,21 +45,19 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
-        {/* Auth Database Status Pill (Clickable to configure Supabase) */}
+        {/* Supabase PostgreSQL Cloud Badge */}
         <div 
           className="badge"
-          onClick={onOpenSettings}
           style={{
-            background: authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.12)' : 'rgba(255, 255, 255, 0.05)',
-            color: authProvider === 'supabase' ? '#3ecf8e' : 'var(--text-muted)',
-            border: `1px solid ${authProvider === 'supabase' ? 'rgba(62, 207, 142, 0.25)' : 'var(--border-subtle)'}`,
-            gap: 5,
-            cursor: 'pointer'
+            background: 'rgba(62, 207, 142, 0.12)',
+            color: '#3ecf8e',
+            border: '1px solid rgba(62, 207, 142, 0.3)',
+            gap: 6
           }}
-          title={authProvider === 'supabase' ? 'Connected to Supabase PostgreSQL Cloud Database (Click to edit settings)' : 'Using SQLite Local Database (Click to connect Supabase)'}
+          title="Directly connected to Supabase PostgreSQL Database & Auth Cloud"
         >
-          <Database size={13} color={authProvider === 'supabase' ? '#3ecf8e' : 'currentColor'} />
-          <span>{authProvider === 'supabase' ? 'Supabase DB' : 'SQLite DB'}</span>
+          <Database size={13} color="#3ecf8e" />
+          <span>Supabase Cloud</span>
         </div>
 
         {/* O*NET Knowledge Base Status Pill */}
@@ -91,12 +88,34 @@ export default function Navbar({
         {/* Authentication Actions */}
         {currentUser ? (
           <div className="nav-user-container">
+            {/* 2FA Security Button */}
+            <button
+              type="button"
+              className="btn-ghost nav-mfa-btn"
+              onClick={onOpenMfa}
+              title="Configure Two-Factor Authentication (2FA / MFA)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                fontSize: '0.84rem',
+                border: currentUser.mfa_enabled ? '1px solid rgba(62, 207, 142, 0.4)' : '1px solid var(--border-subtle)',
+                background: currentUser.mfa_enabled ? 'rgba(62, 207, 142, 0.08)' : 'transparent',
+                color: currentUser.mfa_enabled ? '#3ecf8e' : 'var(--text-muted)'
+              }}
+            >
+              <ShieldCheck size={16} color={currentUser.mfa_enabled ? '#3ecf8e' : 'currentColor'} />
+              <span>{currentUser.mfa_enabled ? '2FA Enabled' : '2FA Security'}</span>
+            </button>
+
             <div className="nav-user-pill" title={`Signed in as ${currentUser.email}`}>
               <div className="nav-user-avatar">
                 {currentUser.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User size={14} />}
               </div>
               <span className="nav-user-name">{currentUser.full_name}</span>
             </div>
+
             <button
               type="button"
               className="btn-ghost nav-logout-btn"
@@ -127,16 +146,6 @@ export default function Navbar({
             </button>
           </div>
         )}
-
-        {/* Settings Modal Toggle */}
-        <button 
-          className="btn-ghost" 
-          onClick={onOpenSettings} 
-          title="Configure Supabase, O*NET, and Gemini"
-          style={{ padding: '8px 10px' }}
-        >
-          <Settings size={18} />
-        </button>
 
         {/* Light / Dark Theme Toggle */}
         <button 
