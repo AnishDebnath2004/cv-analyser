@@ -13,7 +13,8 @@ try {
 }
 
 /**
- * Extract plain text from a PDF ArrayBuffer
+ * Extract plain text from a PDF ArrayBuffer while accurately preserving
+ * lines, headings, paragraphs, and list layouts.
  */
 export async function extractTextFromPdf(arrayBuffer) {
   const loadingTask = pdfjsLib.getDocument({
@@ -24,14 +25,44 @@ export async function extractTextFromPdf(arrayBuffer) {
   });
   const pdf = await loadingTask.promise;
   let fullText = '';
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item) => (item.str !== undefined ? item.str : ''))
-      .join(' ');
-    fullText += pageText + '\n\n';
+    
+    let lastY = null;
+    let pageText = '';
+
+    for (const item of content.items) {
+      if (!item.str && !item.hasEOL) continue;
+
+      const currentY = item.transform ? item.transform[5] : null;
+
+      // Vertical displacement indicates a new line or paragraph break
+      if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 4) {
+        if (!pageText.endsWith('\n')) {
+          pageText += '\n';
+        }
+      } else if (pageText.length > 0 && !pageText.endsWith('\n') && !pageText.endsWith(' ') && item.str) {
+        pageText += ' ';
+      }
+
+      if (item.str) {
+        pageText += item.str;
+      }
+
+      if (item.hasEOL) {
+        if (!pageText.endsWith('\n')) {
+          pageText += '\n';
+        }
+      }
+
+      lastY = currentY;
+    }
+
+    fullText += pageText.trim() + '\n\n';
   }
+
   return fullText.trim();
 }
 
@@ -96,3 +127,4 @@ export async function extractTextFromFile(file) {
 
   throw new Error('Unable to extract text from this document. Please copy and paste your resume text into the "Paste Resume Text" tab.');
 }
+
