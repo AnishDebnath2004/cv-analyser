@@ -10,7 +10,8 @@ import {
   UserPlus,
   LogOut,
   User,
-  ShieldCheck
+  ShieldCheck,
+  Settings
 } from 'lucide-react';
 
 export default function Navbar({
@@ -21,13 +22,12 @@ export default function Navbar({
   onetStatus,
   currentUser,
   onOpenAuth,
-  onOpenMfa,
+  onOpenSettings,
   onLogout
 }) {
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
   return (
@@ -88,11 +88,11 @@ export default function Navbar({
         {/* Authentication Actions */}
         {currentUser ? (
           <div className="nav-user-container">
-            {/* 2FA Security Button */}
+            {/* 2FA Security Pill -> Opens Settings to MFA tab */}
             <button
               type="button"
               className="btn-ghost nav-mfa-btn"
-              onClick={onOpenMfa}
+              onClick={() => onOpenSettings('mfa')}
               title="Configure Two-Factor Authentication (2FA / MFA)"
               style={{
                 display: 'flex',
@@ -106,7 +106,7 @@ export default function Navbar({
               }}
             >
               <ShieldCheck size={16} color={currentUser.mfa_enabled ? '#3ecf8e' : 'currentColor'} />
-              <span>{currentUser.mfa_enabled ? '2FA Enabled' : '2FA Security'}</span>
+              <span>{currentUser.mfa_enabled ? '2FA Active' : '2FA Security'}</span>
             </button>
 
             <div className="nav-user-pill" title={`Signed in as ${currentUser.email}`}>
@@ -147,7 +147,18 @@ export default function Navbar({
           </div>
         )}
 
-        {/* Light / Dark Theme Toggle */}
+        {/* Settings Button */}
+        <button
+          type="button"
+          className="btn-ghost nav-settings-btn"
+          onClick={() => onOpenSettings('theme')}
+          title="Open Settings (Theme & 2FA Security)"
+        >
+          <Settings size={16} />
+          <span>Settings</span>
+        </button>
+
+        {/* Light / Dark Quick Toggle */}
         <button 
           className="btn-ghost" 
           onClick={toggleTheme} 

@@ -4,11 +4,24 @@ import UploadSection from './components/UploadSection';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
-import MfaModal from './components/MfaModal';
+import SettingsModal from './components/SettingsModal';
 import './App.css';
 
 export default function App() {
-  const [theme, setTheme] = useState('dark');
+  // Theme preference: 'light' | 'dark' | 'system'
+  const [themePreference, setThemePreference] = useState(() => {
+    return localStorage.getItem('pathfinder_theme_pref') || 'dark';
+  });
+
+  const getSystemTheme = () => {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  };
+
+  const [resolvedTheme, setResolvedTheme] = useState(() => {
+    const pref = localStorage.getItem('pathfinder_theme_pref') || 'dark';
+    return pref === 'system' ? getSystemTheme() : pref;
+  });
+
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
@@ -19,7 +32,46 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login'); // 'login' | 'signup'
-  const [mfaModalOpen, setMfaModalOpen] = useState(false);
+
+  // Settings modal state
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState('theme'); // 'theme' | 'mfa'
+
+  // Apply theme and listen for OS system theme changes
+  useEffect(() => {
+    const applyTheme = (pref) => {
+      const target = pref === 'system' ? getSystemTheme() : pref;
+      setResolvedTheme(target);
+      document.documentElement.setAttribute('data-theme', target);
+    };
+
+    applyTheme(themePreference);
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    const handleMediaChange = () => {
+      if (themePreference === 'system') {
+        applyTheme('system');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleMediaChange);
+    return () => mediaQuery.removeEventListener('change', handleMediaChange);
+  }, [themePreference]);
+
+  const handleThemeChange = (newPref) => {
+    setThemePreference(newPref);
+    localStorage.setItem('pathfinder_theme_pref', newPref);
+  };
+
+  const handleToggleQuickTheme = () => {
+    const next = resolvedTheme === 'dark' ? 'light' : 'dark';
+    handleThemeChange(next);
+  };
+
+  const openSettings = (tab = 'theme') => {
+    setSettingsInitialTab(tab);
+    setSettingsModalOpen(true);
+  };
 
   // Fetch health and check existing auth session on mount
   useEffect(() => {
@@ -158,14 +210,14 @@ export default function App() {
   return (
     <div className="app-container">
       <Navbar
-        theme={theme}
-        setTheme={setTheme}
+        theme={resolvedTheme}
+        setTheme={handleToggleQuickTheme}
         onReset={handleReset}
         hasResult={Boolean(analysisResult)}
         onetStatus={onetStatus}
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
-        onOpenMfa={() => setMfaModalOpen(true)}
+        onOpenSettings={openSettings}
         onLogout={handleLogout}
       />
 
@@ -199,12 +251,17 @@ export default function App() {
         onAuthSuccess={handleAuthSuccess}
       />
 
-      <MfaModal
-        isOpen={mfaModalOpen}
-        onClose={() => setMfaModalOpen(false)}
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        initialTab={settingsInitialTab}
+        onClose={() => setSettingsModalOpen(false)}
+        themePreference={themePreference}
+        resolvedTheme={resolvedTheme}
+        onThemeChange={handleThemeChange}
         currentUser={currentUser}
         authToken={localStorage.getItem('pathfinder_token')}
         onUserUpdated={setCurrentUser}
+        onOpenAuth={openAuthModal}
       />
     </div>
   );
