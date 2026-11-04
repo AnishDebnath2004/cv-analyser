@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Sparkles,
   Compass,
-  Moon,
-  Sun,
   Database,
   LogIn,
   UserPlus,
@@ -13,8 +11,6 @@ import {
 } from 'lucide-react';
 
 export default function Navbar({
-  theme,
-  setTheme,
   onReset,
   hasResult,
   currentUser,
@@ -22,11 +18,6 @@ export default function Navbar({
   onOpenSettings,
   onLogout
 }) {
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-  };
-
   return (
     <header className="navbar">
       <div className="nav-brand" onClick={onReset} style={{ cursor: 'pointer' }}>
@@ -114,16 +105,6 @@ export default function Navbar({
         >
           <Settings size={16} />
           <span>Settings</span>
-        </button>
-
-        {/* Light / Dark Quick Toggle */}
-        <button 
-          className="btn-ghost" 
-          onClick={toggleTheme} 
-          title="Toggle Light / Dark theme"
-          style={{ padding: '8px 10px' }}
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
     </header>

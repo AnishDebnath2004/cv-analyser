@@ -63,11 +63,6 @@ export default function App() {
     localStorage.setItem('pathfinder_theme_pref', newPref);
   };
 
-  const handleToggleQuickTheme = () => {
-    const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-    handleThemeChange(next);
-  };
-
   const openSettings = (tab = 'theme') => {
     setSettingsInitialTab(tab);
     setSettingsModalOpen(true);
@@ -210,8 +205,6 @@ export default function App() {
   return (
     <div className="app-container">
       <Navbar
-        theme={resolvedTheme}
-        setTheme={handleToggleQuickTheme}
         onReset={handleReset}
         hasResult={Boolean(analysisResult)}
         currentUser={currentUser}
