@@ -11,3 +11,4 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 from backend.main import app
+

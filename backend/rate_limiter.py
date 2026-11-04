@@ -105,3 +105,4 @@ def rate_limit_mfa(request: Request):
 def rate_limit_upload(request: Request):
     """Allow up to 20 resume upload analyses per minute per IP."""
     rate_limiter.enforce(request, bucket="analyze_upload", max_requests=20, window_seconds=60, action_name="resume uploads")
+
