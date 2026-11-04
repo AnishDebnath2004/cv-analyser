@@ -90,3 +90,28 @@ create policy "Users can delete own CV evaluations"
   on public.cv_evaluations for delete
   using (auth.uid() = user_id);
 
+-- ==============================================================
+-- 6. Auto-Confirm Users (Eliminates 'email_not_confirmed' barrier)
+-- ==============================================================
+-- Immediately confirm any previously registered users who are stuck unconfirmed:
+update auth.users
+set email_confirmed_at = coalesce(email_confirmed_at, now())
+where email_confirmed_at is null;
+
+-- Automatically confirm all future signups without waiting for email confirmation:
+create or replace function public.auto_confirm_new_users()
+returns trigger as $$
+begin
+  if new.email_confirmed_at is null then
+    new.email_confirmed_at := now();
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_auto_confirm on auth.users;
+create trigger on_auth_user_auto_confirm
+  before insert on auth.users
+  for each row execute procedure public.auto_confirm_new_users();
+
+

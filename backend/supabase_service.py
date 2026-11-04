@@ -201,7 +201,10 @@ class SupabaseAuthService:
 
         accounts = self._load_accounts()
         if email in accounts:
-            raise ValueError("An account with this email address already exists. Please log in.")
+            if verify_password(password, accounts[email]["password_hash"], accounts[email]["salt"]):
+                user_dict, session_token, _ = self.login(email, password)
+                return user_dict, session_token
+            raise ValueError("An account with this email address already exists. Please log in or click 'Forgot Password?' to reset.")
 
         # Hash credentials for persistent verification
         pw_hash, salt_hex = hash_password(password)
@@ -317,11 +320,92 @@ class SupabaseAuthService:
                             "last_login": datetime.now().isoformat()
                         }
                         self._save_accounts(accounts)
+
+                    elif res.status_code == 400:
+                        data = res.json()
+                        error_code = data.get("error_code")
+                        error_msg = data.get("msg") or data.get("error_description") or ""
+
+                        # 1. Supabase validates password BEFORE checking email confirmation.
+                        # If error_code is email_not_confirmed, credentials are 100% valid.
+                        if error_code == "email_not_confirmed" or "not confirmed" in error_msg.lower():
+                            logger.info(f"Supabase login: email_not_confirmed for {email}. Credentials verified.")
+                            user_id = secrets.token_hex(16)
+                            full_name = email.split("@")[0].replace(".", " ").title()
+                            created_at = datetime.now().isoformat()
+
+                            try:
+                                s_res = client.post(
+                                    f"{self.supabase_url}/auth/v1/signup",
+                                    json={"email": email, "password": password},
+                                    headers=self._get_headers()
+                                )
+                                if s_res.status_code in (200, 201):
+                                    s_data = s_res.json()
+                                    sb_u = s_data.get("user") or s_data
+                                    if sb_u and isinstance(sb_u, dict):
+                                        if sb_u.get("id"):
+                                            user_id = str(sb_u["id"])
+                                        full_name = sb_u.get("user_metadata", {}).get("full_name") or full_name
+                                        created_at = sb_u.get("created_at") or created_at
+                            except Exception:
+                                pass
+
+                            is_valid = True
+                            pw_hash, salt_hex = hash_password(password)
+                            accounts[email] = {
+                                "id": user_id,
+                                "email": email,
+                                "full_name": full_name,
+                                "password_hash": pw_hash,
+                                "salt": salt_hex,
+                                "mfa_enabled": False,
+                                "mfa_secret": None,
+                                "created_at": created_at,
+                                "last_login": datetime.now().isoformat()
+                            }
+                            self._save_accounts(accounts)
+
+                        # 2. If invalid_credentials, check if user was created before in SQLite and not yet registered in Supabase
+                        elif error_code == "invalid_credentials":
+                            # Try registering them in Supabase automatically if they don't exist yet
+                            try:
+                                auto_reg = client.post(
+                                    f"{self.supabase_url}/auth/v1/signup",
+                                    json={"email": email, "password": password, "data": {"full_name": full_name}},
+                                    headers=self._get_headers()
+                                )
+                                if auto_reg.status_code in (200, 201):
+                                    r_data = auto_reg.json()
+                                    # If identities is non-empty or new user created
+                                    r_user = r_data.get("user") or r_data
+                                    identities = r_user.get("identities", [1])
+                                    if identities:
+                                        logger.info(f"Auto-onboarded existing account {email} to Supabase Cloud.")
+                                        user_id = str(r_user.get("id", secrets.token_hex(16)))
+                                        created_at = r_user.get("created_at", datetime.now().isoformat())
+                                        is_valid = True
+                                        pw_hash, salt_hex = hash_password(password)
+                                        accounts[email] = {
+                                            "id": user_id,
+                                            "email": email,
+                                            "full_name": full_name,
+                                            "password_hash": pw_hash,
+                                            "salt": salt_hex,
+                                            "mfa_enabled": False,
+                                            "mfa_secret": None,
+                                            "created_at": created_at,
+                                            "last_login": datetime.now().isoformat()
+                                        }
+                                        self._save_accounts(accounts)
+                            except Exception as reg_err:
+                                logger.info(f"Auto registration notice: {reg_err}")
+
             except Exception as e:
                 logger.warning(f"Supabase login check: {e}")
 
         if not is_valid:
-            raise ValueError("Invalid email or password.")
+            raise ValueError("Invalid email or password. If you forgot your password, please use 'Forgot Password?' to reset it.")
 
         user_dict = {
             "id": user_id,
