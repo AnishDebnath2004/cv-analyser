@@ -153,6 +153,16 @@ export default function App() {
   };
 
   const handleAnalyzeFile = async (file) => {
+    if (!file) return;
+
+    // Check file size (Vercel serverless request body cap is 4.5MB)
+    const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      alert(`The selected file is ${sizeMB}MB, which exceeds Vercel's 4.5MB upload limit. Please compress the file or switch to 'Paste Text' to analyze instantly.`);
+      return;
+    }
+
     setIsLoading(true);
     const cleanup = simulateStepProgress();
 
@@ -191,7 +201,52 @@ export default function App() {
       const data = await res.json();
       setAnalysisResult(data);
     } catch (err) {
-      alert('Error analyzing resume: ' + err.message);
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        alert('Network interrupted (Failed to fetch). On mobile connections, large files or cellular latency can disrupt the upload stream. Please check your connection, verify your file is under 4MB, or use the "Paste Text" option.');
+      } else {
+        alert('Error analyzing resume: ' + err.message);
+      }
+    } finally {
+      cleanup();
+      setIsLoading(false);
+    }
+  };
+
+  const handleAnalyzeText = async (text) => {
+    if (!text || !text.trim()) {
+      alert('Please enter or paste your resume text.');
+      return;
+    }
+
+    setIsLoading(true);
+    const cleanup = simulateStepProgress();
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = localStorage.getItem('pathfinder_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/analyze/text', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text: text.trim() }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Server error (${res.status})`);
+      }
+
+      const data = await res.json();
+      setAnalysisResult(data);
+    } catch (err) {
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        alert('Network interrupted (Failed to fetch). Please check your internet connection and try again.');
+      } else {
+        alert('Error analyzing resume: ' + err.message);
+      }
     } finally {
       cleanup();
       setIsLoading(false);
@@ -217,6 +272,7 @@ export default function App() {
         {!analysisResult ? (
           <UploadSection
             onAnalyzeFile={handleAnalyzeFile}
+            onAnalyzeText={handleAnalyzeText}
             isLoading={isLoading}
             loadingStep={loadingStep}
             currentUser={currentUser}

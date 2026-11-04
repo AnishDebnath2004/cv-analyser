@@ -341,16 +341,25 @@ async def analyze_upload(file: UploadFile = File(...)):
     filename = file.filename.lower() if file.filename else ""
     contents = await file.read()
     
+    if len(contents) > 4.5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds Vercel's 4.5MB serverless limit. Please compress the document or use 'Paste Text'."
+        )
+
     raw_text = ""
     try:
-        if filename.endswith(".pdf"):
+        if filename.endswith(".pdf") or contents.startswith(b"%PDF") or b"/Root" in contents[:1024]:
             raw_text = ResumeParser.extract_text_from_pdf(contents)
-        elif filename.endswith(".docx"):
+        elif filename.endswith(".docx") or contents.startswith(b"PK\x03\x04"):
             raw_text = ResumeParser.extract_text_from_docx(contents)
         elif filename.endswith(".txt"):
             raw_text = contents.decode("utf-8", errors="ignore")
         else:
-            raw_text = contents.decode("utf-8", errors="ignore")
+            try:
+                raw_text = ResumeParser.extract_text_from_pdf(contents)
+            except Exception:
+                raw_text = contents.decode("utf-8", errors="ignore")
     except Exception as e:
         logger.error(f"Error parsing uploaded file {filename}: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
