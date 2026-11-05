@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Lock, UserPlus, LogIn, Sparkles } from 'lucide-react';
 import Navbar from './components/Navbar';
 import UploadSection from './components/UploadSection';
 import AnalysisDashboard from './components/AnalysisDashboard';
@@ -35,6 +36,12 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login'); // 'login' | 'signup'
+  const [authNoticeMessage, setAuthNoticeMessage] = useState('');
+
+  // Anonymous guest analysis tracking (restriction: max 2 analyses without login)
+  const [guestAnalysisCount, setGuestAnalysisCount] = useState(() => {
+    return parseInt(localStorage.getItem('pathfinder_guest_analysis_count') || '0', 10);
+  });
 
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -65,6 +72,13 @@ export default function App() {
   }, []);
 
   const handleOpenBuilder = () => {
+    // Restriction: User must sign up / log in to make a CV
+    if (!currentUser) {
+      localStorage.setItem('pathfinder_pending_builder', 'true');
+      openAuthModal('signup', 'Please sign up or log in to create and download ATS-friendly resumes.');
+      return;
+    }
+
     // Open ATS Resume Builder in a separate window/tab
     const newWindow = window.open('/builder', '_blank');
     if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
@@ -146,6 +160,20 @@ export default function App() {
       localStorage.setItem('pathfinder_user', JSON.stringify(user));
       setCurrentUser(user);
     }
+    setAuthModalOpen(false);
+    setAuthNoticeMessage('');
+
+    // If user was prompted to authenticate to build a CV, proceed to open builder now
+    if (localStorage.getItem('pathfinder_pending_builder') === 'true') {
+      localStorage.removeItem('pathfinder_pending_builder');
+      setTimeout(() => {
+        const newWindow = window.open('/builder', '_blank');
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          window.history.pushState({}, '', '/builder');
+          setCurrentRoute('builder');
+        }
+      }, 250);
+    }
   };
 
   const handleLogout = async () => {
@@ -165,8 +193,9 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  const openAuthModal = (mode = 'login') => {
+  const openAuthModal = (mode = 'login', notice = '') => {
     setAuthModalMode(mode);
+    setAuthNoticeMessage(notice);
     setAuthModalOpen(true);
   };
 
@@ -191,6 +220,15 @@ export default function App() {
 
   const handleAnalyzeFile = async (file) => {
     if (!file) return;
+
+    // Restriction 1: Anonymous users can only analyze up to 2 times without login
+    if (!currentUser) {
+      const currentCount = parseInt(localStorage.getItem('pathfinder_guest_analysis_count') || '0', 10);
+      if (currentCount >= 2) {
+        openAuthModal('signup', "You have used your 2 free resume evaluations. Please sign up or log in for unlimited analyses.");
+        return;
+      }
+    }
 
     setUploadWarning(null);
 
@@ -259,6 +297,12 @@ export default function App() {
           }
         }
 
+        // Check if server indicated rate limit / anonymous quota reached
+        if (res.status === 403) {
+          openAuthModal('signup', typeof errorMsg === 'string' ? errorMsg : "You have used your 2 free resume evaluations. Please sign up or log in for unlimited analyses.");
+          return;
+        }
+
         // Check if server indicated non-resume document
         if (res.status === 422 || (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('not a resume'))) {
           setUploadWarning({
@@ -273,6 +317,14 @@ export default function App() {
 
       const data = await res.json();
       setAnalysisResult(data);
+
+      // Track successful analysis for anonymous guests
+      if (!currentUser) {
+        const prevCount = parseInt(localStorage.getItem('pathfinder_guest_analysis_count') || '0', 10);
+        const nextCount = prevCount + 1;
+        localStorage.setItem('pathfinder_guest_analysis_count', nextCount.toString());
+        setGuestAnalysisCount(nextCount);
+      }
     } catch (err) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         alert('Network interrupted (Failed to fetch). Please check your internet connection and try again.');
@@ -289,6 +341,15 @@ export default function App() {
     if (!text || !text.trim()) {
       alert('Please enter or paste your resume text.');
       return;
+    }
+
+    // Restriction 1: Anonymous users can only analyze up to 2 times without login
+    if (!currentUser) {
+      const currentCount = parseInt(localStorage.getItem('pathfinder_guest_analysis_count') || '0', 10);
+      if (currentCount >= 2) {
+        openAuthModal('signup', "You have used your 2 free resume evaluations. Please sign up or log in for unlimited analyses.");
+        return;
+      }
     }
 
     setUploadWarning(null);
@@ -323,6 +384,11 @@ export default function App() {
         const errorData = await res.json().catch(() => ({}));
         const detailMsg = errorData.detail || `Server error (${res.status})`;
 
+        if (res.status === 403) {
+          openAuthModal('signup', typeof detailMsg === 'string' ? detailMsg : "You have used your 2 free resume evaluations. Please sign up or log in for unlimited analyses.");
+          return;
+        }
+
         if (res.status === 422 || (typeof detailMsg === 'string' && detailMsg.toLowerCase().includes('not a resume'))) {
           setUploadWarning({
             filename: fileName || 'Uploaded Document',
@@ -336,6 +402,14 @@ export default function App() {
 
       const data = await res.json();
       setAnalysisResult(data);
+
+      // Track successful analysis for anonymous guests
+      if (!currentUser) {
+        const prevCount = parseInt(localStorage.getItem('pathfinder_guest_analysis_count') || '0', 10);
+        const nextCount = prevCount + 1;
+        localStorage.setItem('pathfinder_guest_analysis_count', nextCount.toString());
+        setGuestAnalysisCount(nextCount);
+      }
     } catch (err) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         alert('Network interrupted (Failed to fetch). Please check your internet connection and try again.');
@@ -376,6 +450,72 @@ export default function App() {
 
   // If in dedicated Standalone Builder window/tab
   if (currentRoute === 'builder') {
+    // Restriction 2: User must sign up / log in to make CV
+    if (!currentUser) {
+      return (
+        <div className="builder-auth-gate-page">
+          <div className="builder-auth-gate-card animate-fade-in">
+            <div className="builder-auth-gate-icon">
+              <Lock size={30} />
+            </div>
+            <h2 className="builder-auth-gate-title">Sign In Required to Make a Resume</h2>
+            <p className="builder-auth-gate-desc">
+              Please create a free PathFinder account or sign in to use the ATS Resume Builder, customize section entries with live search, generate summaries with the AI agent, and download your CV in PDF format.
+            </p>
+            <div className="builder-auth-gate-actions">
+              <button
+                type="button"
+                className="btn-primary builder-gate-btn"
+                onClick={() => {
+                  openAuthModal('signup', 'Sign up to create and download your ATS-friendly resume.');
+                }}
+              >
+                <UserPlus size={16} />
+                <span>Sign Up to Build CV</span>
+              </button>
+              <button
+                type="button"
+                className="btn-secondary builder-gate-btn"
+                onClick={() => {
+                  openAuthModal('login', 'Log in to continue building your resume.');
+                }}
+              >
+                <LogIn size={16} />
+                <span>Log In</span>
+              </button>
+              <button
+                type="button"
+                className="btn-ghost builder-gate-btn"
+                onClick={() => {
+                  if (window.opener && !window.opener.closed) {
+                    window.close();
+                  } else {
+                    window.history.pushState({}, '', '/');
+                    setCurrentRoute('home');
+                  }
+                }}
+              >
+                <span>Return to Resume Analyzer</span>
+              </button>
+            </div>
+          </div>
+
+          <AuthModal
+            isOpen={authModalOpen}
+            initialMode={authModalMode}
+            noticeMessage={authNoticeMessage}
+            onClose={() => {
+              setAuthModalOpen(false);
+              setAuthNoticeMessage('');
+            }}
+            onAuthSuccess={(user, token) => {
+              handleAuthSuccess(user, token);
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <ResumeBuilderModal
         isOpen={true}
@@ -415,6 +555,8 @@ export default function App() {
             isLoading={isLoading}
             loadingStep={loadingStep}
             currentUser={currentUser}
+            guestAnalysisCount={guestAnalysisCount}
+            onOpenAuth={openAuthModal}
             onAuthSuccess={handleAuthSuccess}
             onLogout={handleLogout}
             uploadWarning={uploadWarning}
@@ -436,7 +578,11 @@ export default function App() {
       <AuthModal
         isOpen={authModalOpen}
         initialMode={authModalMode}
-        onClose={() => setAuthModalOpen(false)}
+        noticeMessage={authNoticeMessage}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setAuthNoticeMessage('');
+        }}
         onAuthSuccess={handleAuthSuccess}
       />
 

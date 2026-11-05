@@ -11,7 +11,7 @@ if _current_dir not in sys.path:
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 
-from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -30,6 +30,8 @@ try:
     from backend.sample_resumes import SAMPLE_RESUMES
     from backend.auth_service import auth_service
     from backend.rate_limiter import (
+        rate_limiter,
+        InMemoryRateLimiter,
         rate_limit_login,
         rate_limit_register,
         rate_limit_forgot_password,
@@ -49,6 +51,8 @@ except ImportError:
     from sample_resumes import SAMPLE_RESUMES
     from auth_service import auth_service
     from rate_limiter import (
+        rate_limiter,
+        InMemoryRateLimiter,
         rate_limit_login,
         rate_limit_register,
         rate_limit_forgot_password,
@@ -119,13 +123,46 @@ def _get_authenticated_user(authorization: Optional[str] = Header(None)) -> Dict
             token = authorization.strip()
 
     if not token:
-        raise HTTPException(status_code=401, detail="Authentication token missing")
+        raise HTTPException(status_code=401, detail="Authentication required. Please sign up or log in to create and edit your resume.")
 
     user = auth_service.get_user_by_token(token)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+        raise HTTPException(status_code=401, detail="Invalid or expired session token. Please log in again.")
 
     return user
+
+
+def check_analysis_quota(
+    request: Request,
+    authorization: Optional[str] = Header(None)
+) -> Tuple[Optional[Dict[str, Any]], str]:
+    """
+    Enforces analysis quota:
+    - Logged-in users have unlimited resume analyses.
+    - Anonymous/guest users are limited to 2 free analyses.
+    Returns (user_dict_or_none, client_ip).
+    """
+    token = None
+    if authorization:
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        else:
+            token = authorization.strip()
+
+    if token:
+        user = auth_service.get_user_by_token(token)
+        if user:
+            return user, InMemoryRateLimiter.get_client_ip(request)
+
+    # Anonymous user: check quota
+    client_ip = InMemoryRateLimiter.get_client_ip(request)
+    allowed, remaining = rate_limiter.check_guest_quota(client_ip, max_allowed=2)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Free analysis limit reached (2 free analyses). Please sign up or log in to continue analyzing resumes."
+        )
+    return None, client_ip
 
 
 @api_router.get("/health")
@@ -324,20 +361,50 @@ async def get_samples():
 
 
 @api_router.post("/analyze/sample/{sample_id}", response_model=AnalysisResult)
-async def analyze_sample(sample_id: str):
+async def analyze_sample(
+    request: Request,
+    sample_id: str,
+    authorization: Optional[str] = Header(None)
+):
     """Analyze one of the pre-configured sample resumes."""
+    auth_user, client_ip = check_analysis_quota(request, authorization)
     if sample_id not in SAMPLE_RESUMES:
         raise HTTPException(status_code=404, detail="Sample resume not found")
     
     agent = get_cv_agent()
     sample_text = SAMPLE_RESUMES[sample_id]["text"]
     result = await agent.analyze(sample_text)
+    if auth_user is None:
+        rate_limiter.record_guest_analysis(client_ip)
     return result
 
 
+@api_router.get("/analyze/quota")
+async def get_analysis_quota(request: Request, authorization: Optional[str] = Header(None)):
+    """Return remaining guest analysis quota or unlimited status for logged-in user."""
+    token = None
+    if authorization:
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        else:
+            token = authorization.strip()
+    if token:
+        user = auth_service.get_user_by_token(token)
+        if user:
+            return {"authenticated": True, "remaining": -1, "max_allowed": -1}
+    client_ip = InMemoryRateLimiter.get_client_ip(request)
+    remaining = rate_limiter.get_guest_remaining(client_ip, max_allowed=2)
+    return {"authenticated": False, "remaining": remaining, "max_allowed": 2}
+
+
 @api_router.post("/analyze/upload", response_model=AnalysisResult, dependencies=[Depends(rate_limit_upload)])
-async def analyze_upload(file: UploadFile = File(...)):
+async def analyze_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None)
+):
     """Upload and analyze a resume file (PDF, DOCX, or TXT)."""
+    auth_user, client_ip = check_analysis_quota(request, authorization)
     filename = file.filename.lower() if file.filename else ""
     contents = await file.read()
     
@@ -375,6 +442,8 @@ async def analyze_upload(file: UploadFile = File(...)):
     try:
         agent = get_cv_agent()
         result = await agent.analyze(raw_text)
+        if auth_user is None:
+            rate_limiter.record_guest_analysis(client_ip)
         return result
     except Exception as e:
         logger.error(f"Analysis engine error: {e}")
@@ -384,8 +453,13 @@ async def analyze_upload(file: UploadFile = File(...)):
 
 
 @api_router.post("/analyze/text", response_model=AnalysisResult)
-async def analyze_text(payload: TextAnalyzeRequest):
+async def analyze_text(
+    request: Request,
+    payload: TextAnalyzeRequest,
+    authorization: Optional[str] = Header(None)
+):
     """Analyze pasted resume text."""
+    auth_user, client_ip = check_analysis_quota(request, authorization)
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Resume text cannot be empty.")
 
@@ -397,6 +471,8 @@ async def analyze_text(payload: TextAnalyzeRequest):
     try:
         agent = get_cv_agent()
         result = await agent.analyze(payload.text)
+        if auth_user is None:
+            rate_limiter.record_guest_analysis(client_ip)
         return result
     except Exception as e:
         logger.error(f"Analysis engine error: {e}")
@@ -492,8 +568,12 @@ async def chat_with_agent(req: ChatRequest):
 
 
 @api_router.post("/builder/generate-summary", response_model=SummaryAgentResponse)
-async def generate_builder_summary(req: SummaryAgentRequest):
-    """AI Agent endpoint to write or refine resume professional summary on demand."""
+async def generate_builder_summary(
+    req: SummaryAgentRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """AI Agent endpoint to write or refine resume professional summary on demand (user must be authenticated)."""
+    _get_authenticated_user(authorization)
     try:
         agent = get_cv_agent()
         res = await agent.generate_professional_summary(

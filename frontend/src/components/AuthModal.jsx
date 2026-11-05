@@ -7,6 +7,7 @@ import {
 export default function AuthModal({
   isOpen,
   initialMode = 'login',
+  noticeMessage = '',
   onClose,
   onAuthSuccess
 }) {
@@ -300,6 +301,13 @@ export default function AuthModal({
               : 'Log in to access your saved resume evaluations and customized O*NET career pathways.'}
           </p>
         </div>
+
+        {noticeMessage && (
+          <div className="auth-alert auth-alert-info animate-fade-in" style={{ marginBottom: 16 }}>
+            <Sparkles size={16} style={{ flexShrink: 0, color: 'var(--primary)' }} />
+            <span>{noticeMessage}</span>
+          </div>
+        )}
 
         {/* Tab switch for Login / Signup */}
         {(mode === 'login' || mode === 'signup') && (

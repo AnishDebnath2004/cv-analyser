@@ -8,6 +8,8 @@ export default function UploadSection({
   isLoading,
   loadingStep,
   currentUser,
+  guestAnalysisCount = 0,
+  onOpenAuth,
   onAuthSuccess,
   onLogout,
   uploadWarning,
@@ -103,6 +105,30 @@ export default function UploadSection({
               </span>
               <span className="badge badge-primary">Max 4.5MB • PDF • DOCX • TXT</span>
             </div>
+
+            {!currentUser && (
+              <div className={`guest-quota-banner ${guestAnalysisCount >= 2 ? 'guest-quota-depleted' : ''} animate-fade-in`}>
+                <div className="guest-quota-info">
+                  <span className="guest-quota-dot" />
+                  <span className="guest-quota-text">
+                    {guestAnalysisCount >= 2 ? (
+                      <>You have used your <strong>2 free guest analyses</strong>. Sign up to unlock unlimited analyses.</>
+                    ) : (
+                      <><strong>{Math.max(0, 2 - guestAnalysisCount)} of 2</strong> free analyses remaining without login.</>
+                    )}
+                  </span>
+                </div>
+                {onOpenAuth && (
+                  <button
+                    type="button"
+                    className="guest-quota-cta"
+                    onClick={() => onOpenAuth('signup', 'Sign up or log in for unlimited resume evaluations.')}
+                  >
+                    {guestAnalysisCount >= 2 ? 'Sign Up for Unlimited' : 'Sign In'}
+                  </button>
+                )}
+              </div>
+            )}
 
             {fileError && (
               <div className="auth-alert auth-alert-error" style={{ marginBottom: 16 }}>
@@ -261,7 +287,9 @@ export default function UploadSection({
                     <span className="badge badge-accent">Single-Column ATS Format</span>
                   </div>
                   <div className="builder-promo-desc">
-                    Draft a structured, recruiter-ready resume designed to highlight your core strengths and pass ATS filters.
+                    {currentUser
+                      ? 'Draft a structured, recruiter-ready resume designed to highlight your core strengths and pass ATS filters.'
+                      : 'Sign up or log in to use our professional ATS Resume Builder and export in PDF.'}
                   </div>
                 </div>
               </div>
@@ -274,7 +302,7 @@ export default function UploadSection({
                 }}
               >
                 <FileText size={15} />
-                <span>Open Resume Builder</span>
+                <span>{currentUser ? 'Open Resume Builder' : 'Log In to Make CV'}</span>
                 <ArrowRight size={15} />
               </button>
             </div>

@@ -16,6 +16,27 @@ class InMemoryRateLimiter:
     def __init__(self):
         # key -> list of float timestamps
         self._history: Dict[str, List[float]] = defaultdict(list)
+        # client_ip -> count of anonymous analyses performed
+        self._guest_analyses: Dict[str, int] = defaultdict(int)
+
+    def check_guest_quota(self, client_ip: str, max_allowed: int = 2) -> Tuple[bool, int]:
+        """
+        Check if an anonymous guest IP has remaining free analyses.
+        Returns: (is_allowed, remaining_count)
+        """
+        used = self._guest_analyses[client_ip]
+        if used >= max_allowed:
+            return False, 0
+        return True, max_allowed - used
+
+    def record_guest_analysis(self, client_ip: str):
+        """Record an analysis consumption for an anonymous guest IP."""
+        self._guest_analyses[client_ip] += 1
+
+    def get_guest_remaining(self, client_ip: str, max_allowed: int = 2) -> int:
+        """Get remaining free analyses for an anonymous guest IP."""
+        used = self._guest_analyses[client_ip]
+        return max(0, max_allowed - used)
 
     @staticmethod
     def get_client_ip(request: Request) -> str:
