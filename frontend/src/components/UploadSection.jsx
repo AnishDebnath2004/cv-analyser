@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, ArrowRight, Zap, FileCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { UploadCloud, ArrowRight, Zap, FileCheck, Sparkles, AlertCircle, Wand2, FileText } from 'lucide-react';
 
 export default function UploadSection({
   onAnalyzeFile,
   onAnalyzeText,
+  onOpenBuilder,
   isLoading,
   loadingStep,
   currentUser,
@@ -168,6 +169,36 @@ export default function UploadSection({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Don't have a resume? Free ATS Builder Banner */}
+            <div className="builder-promo-banner" onClick={onOpenBuilder}>
+              <div className="builder-promo-left">
+                <div className="builder-promo-icon">
+                  <Wand2 size={24} />
+                </div>
+                <div className="builder-promo-text">
+                  <div className="builder-promo-title">
+                    <span>Don't have a resume yet?</span>
+                    <span className="badge badge-accent">Free ATS Resume Builder</span>
+                  </div>
+                  <div className="builder-promo-desc">
+                    Create a high-scoring, single-column resume formatted for ATS parsers and PathFinder AI in under 2 minutes.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary builder-promo-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenBuilder();
+                }}
+              >
+                <FileText size={15} />
+                <span>Build ATS Resume</span>
+                <ArrowRight size={15} />
+              </button>
             </div>
           </div>
         )}

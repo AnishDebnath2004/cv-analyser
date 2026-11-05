@@ -5,6 +5,7 @@ import AnalysisDashboard from './components/AnalysisDashboard';
 import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
 import SettingsModal from './components/SettingsModal';
+import ResumeBuilderModal from './components/ResumeBuilderModal';
 import { extractTextFromFile } from './utils/documentParser';
 import './App.css';
 
@@ -37,6 +38,9 @@ export default function App() {
   // Settings modal state
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState('theme'); // 'theme' | 'mfa'
+
+  // ATS Resume Builder modal state
+  const [builderModalOpen, setBuilderModalOpen] = useState(false);
 
   // Apply theme and listen for OS system theme changes
   useEffect(() => {
@@ -281,6 +285,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
         onOpenSettings={openSettings}
+        onOpenBuilder={() => setBuilderModalOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -289,6 +294,7 @@ export default function App() {
           <UploadSection
             onAnalyzeFile={handleAnalyzeFile}
             onAnalyzeText={handleAnalyzeText}
+            onOpenBuilder={() => setBuilderModalOpen(true)}
             isLoading={isLoading}
             loadingStep={loadingStep}
             currentUser={currentUser}
@@ -326,6 +332,13 @@ export default function App() {
         authToken={localStorage.getItem('pathfinder_token')}
         onUserUpdated={setCurrentUser}
         onOpenAuth={openAuthModal}
+      />
+
+      <ResumeBuilderModal
+        isOpen={builderModalOpen}
+        onClose={() => setBuilderModalOpen(false)}
+        onAnalyzeResumeText={handleAnalyzeText}
+        currentUser={currentUser}
       />
     </div>
   );
