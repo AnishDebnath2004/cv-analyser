@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 # Ensure both current directory and parent directory are on sys.path
 _current_dir = os.path.dirname(os.path.abspath(__file__))
