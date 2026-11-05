@@ -6,8 +6,7 @@ import {
   UserPlus,
   LogOut,
   User,
-  Settings,
-  FileText
+  Settings
 } from 'lucide-react';
 
 export default function Navbar({
@@ -81,17 +80,6 @@ export default function Navbar({
             </button>
           </div>
         )}
-
-        {/* ATS Resume Builder Button */}
-        <button
-          type="button"
-          className="btn-ghost nav-builder-btn"
-          onClick={onOpenBuilder}
-          title="Create an ATS-Friendly Resume"
-        >
-          <FileText size={16} />
-          <span>Build Resume</span>
-        </button>
 
         {/* Settings Button */}
         <button
