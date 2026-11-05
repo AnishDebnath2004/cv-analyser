@@ -1559,33 +1559,194 @@
   width: 100%;
 }
 
-.builder-phone-code-select {
-  flex: 0 0 135px;
-  max-width: 145px;
-  cursor: pointer;
-  padding: 10px 8px !important;
-  font-size: 0.84rem;
-  background-color: var(--bg-input);
-  color: var(--text-primary);
+/* Searchable Country Calling Code Picker */
+.country-picker-container {
+  position: relative;
+  flex: 0 0 115px;
+  max-width: 130px;
+}
+
+.country-picker-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 10px;
+  background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  outline: none;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.builder-phone-code-select:focus {
+.country-picker-trigger:hover,
+.country-picker-trigger.active {
   border-color: var(--primary);
-  box-shadow: 0 0 16px var(--primary-glow);
+  box-shadow: 0 0 14px var(--primary-glow);
 }
 
-.builder-phone-code-select option {
-  background-color: #1e1b4b;
-  color: #f8fafc;
-  padding: 6px 10px;
+.country-picker-flag {
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
-[data-theme='light'] .builder-phone-code-select option {
-  background-color: #ffffff;
-  color: #1e293b;
+.country-picker-code {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  text-align: left;
+}
+
+.country-picker-chevron {
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.country-picker-chevron.rotate {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
+.country-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 310px;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 40px -6px rgba(0, 0, 0, 0.7), 0 0 25px rgba(99, 102, 241, 0.2);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.country-picker-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.country-picker-search-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.country-picker-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.country-picker-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.country-picker-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.country-picker-clear-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.country-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.country-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.country-picker-item:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #ffffff;
+}
+
+.country-picker-item.selected {
+  background: rgba(99, 102, 241, 0.22);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.country-item-flag {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.country-item-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.country-item-code {
+  font-weight: 600;
+  color: var(--accent-cyan);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.country-item-check {
+  color: var(--accent-emerald);
+  flex-shrink: 0;
+}
+
+.country-picker-no-results {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+[data-theme='light'] .country-picker-dropdown {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .country-picker-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary);
+}
+
+[data-theme='light'] .country-picker-item.selected {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary);
 }
 
 .builder-phone-number-input {

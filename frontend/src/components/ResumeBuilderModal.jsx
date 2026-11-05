@@ -31,6 +31,7 @@ import {
   DEGREE_OPTIONS_DATA
 } from '../utils/searchAsYouTypeData';
 import SearchAsYouTypeInput from './SearchAsYouTypeInput';
+import CountryCodePicker from './CountryCodePicker';
 
 export default function ResumeBuilderModal({
   isOpen = true,
@@ -86,8 +87,8 @@ export default function ResumeBuilderModal({
     }));
   };
 
-  const handleCountryCodeChange = (e) => {
-    const newCode = e.target.value;
+  const handleCountryCodeChange = (codeOrEvent) => {
+    const newCode = typeof codeOrEvent === 'string' ? codeOrEvent : codeOrEvent?.target?.value;
     setPhoneCountryCode(newCode);
     const combined = phoneLocalNumber.trim()
       ? (newCode ? `${newCode} ${phoneLocalNumber.trim()}` : phoneLocalNumber.trim())
@@ -583,19 +584,10 @@ export default function ResumeBuilderModal({
                     <div className="auth-field">
                       <label className="auth-label">Phone Number (Optional)</label>
                       <div className="builder-phone-group">
-                        <select
-                          className="auth-input builder-phone-code-select"
+                        <CountryCodePicker
                           value={phoneCountryCode}
                           onChange={handleCountryCodeChange}
-                          title="International Country Calling Code"
-                        >
-                          <option value="">Code</option>
-                          {COUNTRY_CALLING_CODES.map((item, idx) => (
-                            <option key={`${item.iso}-${item.code}-${idx}`} value={item.code}>
-                              {item.flag} {item.name} ({item.code})
-                            </option>
-                          ))}
-                        </select>
+                        />
                         <input
                           type="tel"
                           className="auth-input builder-phone-number-input"

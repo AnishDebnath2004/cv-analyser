@@ -243,3 +243,4 @@ export const DEGREE_OPTIONS_DATA = [
   'Microsoft Certified: Azure Solutions Architect Expert',
   'CompTIA Security+ / Network+'
 ];
+
