@@ -508,7 +508,7 @@ export default function ResumeBuilderModal({
                       />
                     </div>
                     <div className="auth-field">
-                      <label className="auth-label">Target Title / Headline *</label>
+                      <label className="auth-label">Target Title / Headline (Optional)</label>
                       <input
                         type="text"
                         className="auth-input"
