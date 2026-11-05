@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Sparkles,
   Compass,
-  Database,
   LogIn,
   UserPlus,
   LogOut,
@@ -35,21 +34,6 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
-        {/* Supabase PostgreSQL Cloud Badge */}
-        <div 
-          className="badge"
-          style={{
-            background: 'rgba(62, 207, 142, 0.12)',
-            color: '#3ecf8e',
-            border: '1px solid rgba(62, 207, 142, 0.3)',
-            gap: 6
-          }}
-          title="Directly connected to Supabase PostgreSQL Database & Auth Cloud"
-        >
-          <Database size={13} color="#3ecf8e" />
-          <span>Supabase Cloud</span>
-        </div>
-
         {hasResult && (
           <button className="btn-secondary" onClick={onReset}>
             <Sparkles size={16} />
