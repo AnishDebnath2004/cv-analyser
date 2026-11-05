@@ -98,7 +98,7 @@ class ResumeParser:
         Determines whether the provided document text is a valid resume/CV.
         Returns (True, "") if valid, or (False, "User-friendly explanation") if not a resume.
         """
-        if not text:
+        if not text or not text.strip():
             return False, "The uploaded file contains no readable text. Please upload a valid PDF, DOCX, or text file."
 
         clean = text.strip()
@@ -106,73 +106,247 @@ class ResumeParser:
         if len(words) < 25 or len(clean) < 120:
             return False, "The uploaded document contains too little text to be a resume. Please upload a complete resume or CV."
 
-        text_lower = clean.lower()
+        lower = clean.lower()
+        lines = [line.strip() for line in clean.splitlines() if line.strip()]
 
-        # 1. Non-resume negative indicators
-        invoice_markers = len(re.findall(r"\b(invoice|inv-\d+|amount\s+due|subtotal|balance\s+due|bill\s+to|ship\s+to|unit\s+price|payment\s+terms|payment\s+method|purchase\s+order|tax\s+rate|remit\s+to|qty\b)\b", text_lower))
-        legal_markers = len(re.findall(r"\b(terms\s+of\s+(?:service|use)|privacy\s+policy|end\s+user\s+license|arbitration\s+clause|governing\s+law|indemnif(?:y|ication)|herein\b|whereas\b|witnesseth)\b", text_lower))
-        bank_markers = len(re.findall(r"\b(statement\s+of\s+account|account\s+statement|opening\s+balance|closing\s+balance|withdrawal\b|interest\s+earned|transaction\s+history|available\s+balance)\b", text_lower))
-        recipe_markers = len(re.findall(r"\b(ingredients\s*:|prep\s+time|cook\s+time|preheat\s+oven|tablespoon|teaspoon|cups?\s+of)\b", text_lower))
-        academic_paper_markers = len(re.findall(r"\b(abstract\s*:\s*|table\s+of\s+contents|literature\s+review|doi\s*:\s*10\.\d+|proceedings\s+of\s+the)\b", text_lower))
+        # =========================================================================
+        # 1. SPECIFIC NON-RESUME DOCUMENT DISQUALIFIERS (Checked first)
+        # =========================================================================
 
-        # 2. Section headers
-        section_headers = 0
-        if re.search(r"\b(experience|work\s+experience|employment\s+history|work\s+history|professional\s+experience|career\s+history|internships?)\b", text_lower):
-            section_headers += 1
-        if re.search(r"\b(education|academic\s+background|qualifications|academics|educational\s+qualifications?)\b", text_lower):
-            section_headers += 1
-        if re.search(r"\b(skills|technical\s+skills|core\s+competencies|competencies|tech\s+stack|technologies|tools\s*(&|and)\s*technologies|key\s+skills|areas\s+of\s+expertise)\b", text_lower):
-            section_headers += 1
-        if re.search(r"\b(projects|key\s+projects|personal\s+projects|academic\s+projects|portfolio)\b", text_lower):
-            section_headers += 1
-        if re.search(r"\b(professional\s+summary|summary|profile|about\s+me|career\s+objective|objective|executive\s+summary)\b", text_lower):
-            section_headers += 1
-        if re.search(r"\b(certifications?|licenses?|credentials|awards?|achievements?|publications?)\b", text_lower):
-            section_headers += 1
+        # A. Job Descriptions / Vacancy Announcements
+        jd_patterns = [
+            r"\b(?:job|position|role)\s+description\b",
+            r"\b(?:about\s+the|position|role)\s+overview\b",
+            r"\bwe\s+are\s+(?:looking\s+for|seeking|hiring)\b",
+            r"\bwhat\s+you(?:\'ll|\s+will)\s+do\b",
+            r"\bwhat\s+we(?:\'re|\s+are)?\s+offer(?:ing)?\b",
+            r"\bkey\s+responsibilities\s*:",
+            r"\b(?:minimum|preferred|basic)\s+qualifications\s*:",
+            r"\bresponsibilities\s*:\s*",
+            r"\brequirements\s*:\s*",
+            r"\bequal\s+opportunity\s+employer\b",
+            r"\bhow\s+to\s+apply\b",
+            r"\bapply\s+(?:for\s+this\s+job|now\b|at\s+https?:)",
+            r"\bsubmit\s+your\s+application\b",
+            r"\bsalary\s+range\s*:\s*[\$\£\€\₹]?",
+            r"\bthe\s+ideal\s+candidate\s+will\b",
+            r"\breporting\s+to\s+the\b",
+            r"\bcompensation\s+(?:&|and)\s+benefits\b",
+        ]
+        jd_score = sum(1 for p in jd_patterns if re.search(p, lower))
+        if (re.search(r"\b(?:job\s+description|about\s+the\s+role|equal\s+opportunity\s+employer|how\s+to\s+apply|we\s+are\s+hiring|what\s+you\'ll\s+do)\b", lower) and jd_score >= 2) or jd_score >= 3:
+            return False, "This document appears to be a job description or vacancy posting, not a candidate resume."
 
-        # 3. Contact signals
-        contact_signals = 0
-        if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", clean):
-            contact_signals += 1
-        if re.search(r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b", clean):
-            contact_signals += 1
-        if re.search(r"linkedin\.com|github\.com|gitlab\.com", text_lower):
-            contact_signals += 1
+        # B. Offer Letters & Employment Agreements
+        offer_patterns = [
+            r"\boffer\s+of\s+employment\b",
+            r"\bwe\s+are\s+pleased\s+to\s+offer\s+you\b",
+            r"\bwe\s+are\s+excited\s+to\s+offer\s+you\b",
+            r"\bformal\s+offer\b",
+            r"\bemployment\s+agreement\b",
+            r"\bacceptance\s+of\s+offer\b",
+            r"\bterms\s+of\s+employment\b",
+            r"\bappointment\s+letter\b",
+            r"\bbase\s+salary\s+of\b",
+            r"\bannual\s+base\s+salary\b",
+            r"\bstarting\s+salary\s+of\b",
+            r"\bstart\s+date\s+will\s+be\b",
+            r"\bofficial\s+start\s+date\b",
+            r"\bplease\s+sign\s+and\s+return\b",
+            r"\bcontingent\s+upon\s+(?:a\s+)?background\s+check\b",
+            r"\bat-will\s+employment\b",
+        ]
+        offer_score = sum(1 for p in offer_patterns if re.search(p, lower))
+        if (re.search(r"\b(?:offer\s+of\s+employment|we\s+are\s+pleased\s+to\s+offer|employment\s+agreement|formal\s+offer|appointment\s+letter)\b", lower) and offer_score >= 1) or offer_score >= 2:
+            return False, "This document appears to be an employment offer letter or contract, not a candidate resume."
 
-        # 4. Career signals
-        date_ranges = bool(re.search(r"\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|present|current)\b", text_lower))
-        degree_matches = bool(re.search(r"\b(bachelor|master|b\.?tech|m\.?tech|b\.?e\b|m\.?e\b|b\.?s\b|m\.?s\b|bca|mca|ph\.?d|diploma|degree\s+in|university|college|institute|cgpa|gpa)\b", text_lower))
-        role_matches = len(re.findall(r"\b(developer|engineer|manager|analyst|consultant|architect|designer|intern|specialist|lead|administrator|director|coordinator|assistant|officer|programmer)\b", text_lower))
+        # C. Letters of Recommendation (LOR) & References
+        lor_patterns = [
+            r"\bletter\s+of\s+recommendation\b",
+            r"\brecommendation\s+letter\b",
+            r"\bto\s+whom\s+it\s+may\s+concern\b",
+            r"\bi\s+am\s+(?:writing|pleased)\s+to\s+recommend\b",
+            r"\bi\s+(?:wholeheartedly|strongly|highly)\s+recommend\b",
+            r"\bit\s+is\s+(?:with\s+great\s+pleasure|my\s+pleasure)\s+to\s+recommend\b",
+            r"\bletter\s+of\s+reference\b",
+            r"\brecommend\s+[a-z\s]+\s+for\s+(?:admission|the\s+position)\b",
+        ]
+        lor_score = sum(1 for p in lor_patterns if re.search(p, lower))
+        if lor_score >= 1 and (re.search(r"\b(?:to\s+whom\s+it\s+may\s+concern|letter\s+of\s+recommendation|recommendation\s+letter)\b", lower) or lor_score >= 2):
+            return False, "This document appears to be a letter of recommendation or reference letter, not a candidate resume."
 
-        found_skills = 0
-        for cat, sk_list in TECH_SKILLS_TAXONOMY.items():
-            for sk in sk_list[:12]:
-                if f" {sk.lower()} " in f" {text_lower} ":
-                    found_skills += 1
-                    if found_skills >= 4:
-                        break
-            if found_skills >= 4:
-                break
+        # D. Certificates, Diplomas & Course Credentials
+        cert_patterns = [
+            r"\bcertificate\s+of\s+(?:completion|achievement|participation|appreciation|attendance|excellence)\b",
+            r"\bthis\s+is\s+to\s+certify\s+that\b",
+            r"\bthis\s+certificate\s+is\s+(?:proudly\s+)?awarded\s+to\b",
+            r"\bhereby\s+certifies\s+that\b",
+            r"\bhas\s+successfully\s+completed\s+(?:the\s+)?(?:course|program|training|specialization)\b",
+            r"\bhas\s+demonstrated\s+proficiency\s+in\b",
+            r"\bcertificate\s+id\s*:\s*[a-z0-9_-]+",
+            r"\bcredential\s+id\s*:\s*[a-z0-9_-]+",
+            r"\bverify\s+at\s*:\s*https?://",
+        ]
+        cert_score = sum(1 for p in cert_patterns if re.search(p, lower))
+        if cert_score >= 1 and (re.search(r"\b(?:certificate\s+of\s+(?:completion|achievement|participation)|this\s+is\s+to\s+certify\s+that|hereby\s+certifies\s+that|has\s+successfully\s+completed)\b", lower) or cert_score >= 2):
+            return False, "This document appears to be a course certificate or credential award, not a complete resume."
 
-        # Check negative overrides
-        if invoice_markers >= 3 and section_headers < 2:
-            return False, "This document appears to be an invoice or billing receipt, not a resume."
-        if legal_markers >= 2 and section_headers < 2:
-            return False, "This document appears to be a legal contract or policy document, not a resume."
-        if bank_markers >= 2 and section_headers < 2:
-            return False, "This document appears to be a financial or bank statement, not a resume."
-        if recipe_markers >= 2 and section_headers < 2:
-            return False, "This document appears to be a culinary recipe or cooking guide, not a resume."
-        if academic_paper_markers >= 2 and section_headers < 2 and contact_signals == 0:
-            return False, "This document appears to be an academic paper or publication, not a resume."
+        # E. Invoices, Receipts & Financial Documents
+        invoice_patterns = [
+            r"\b(?:tax\s+)?invoice\s*#?\s*[a-z0-9_-]+",
+            r"\b(?:amount|total|balance)\s+due\s*:\s*[\$\£\€\₹]?",
+            r"\b(?:subtotal|total\s+amount)\s*:\s*[\$\£\€\₹]?",
+            r"\bbill\s+to\s*:\s*",
+            r"\bship\s+to\s*:\s*",
+            r"\bpayment\s+(?:terms|due\s+date|method)\s*:",
+            r"\bremit\s+(?:payment\s+)?to\b",
+            r"\bpurchase\s+order\s*#?\s*[a-z0-9_-]+",
+            r"\bstatement\s+of\s+account\b",
+            r"\bopening\s+balance\b",
+        ]
+        invoice_score = sum(1 for p in invoice_patterns if re.search(p, lower))
+        if invoice_score >= 2:
+            return False, "This document appears to be an invoice, billing receipt, or financial statement, not a resume."
 
-        career_signals = (1 if date_ranges else 0) + (1 if degree_matches else 0) + (1 if role_matches >= 1 else 0) + (1 if found_skills >= 2 else 0)
+        # F. Legal Contracts, Policies & Terms of Service
+        legal_patterns = [
+            r"\bterms\s+of\s+(?:service|use)\b",
+            r"\bprivacy\s+policy\b",
+            r"\bend\s+user\s+license\s+agreement\b",
+            r"\bnon-disclosure\s+agreement\b",
+            r"\barbitration\s+clause\b",
+            r"\bgoverning\s+law\b",
+            r"\bindemnif(?:y|ification|ities)\b",
+            r"\bintellectual\s+property\s+rights\b",
+            r"\bin\s+witness\s+whereof\b",
+        ]
+        legal_score = sum(1 for p in legal_patterns if re.search(p, lower))
+        if legal_score >= 2:
+            return False, "This document appears to be a legal terms, policy, or agreement document, not a resume."
 
-        if section_headers >= 2:
+        # G. Academic Syllabi, Assignments & Lab Reports
+        academic_course_patterns = [
+            r"\bcourse\s+syllabus\b",
+            r"\bsyllabus\s+for\b",
+            r"\bgrading\s+policy\b",
+            r"\boffice\s+hours\s*:\s*",
+            r"\bprerequisites\s*:\s*",
+            r"\blab\s+report\s*:\s*",
+            r"\bassignment\s*#\s*\d+",
+            r"\bhomework\s*#\s*\d+",
+            r"\bproblem\s+set\s*#?\s*\d+",
+            r"\blecture\s+notes\b",
+            r"\bteaching\s+assistant\s*:\s*",
+        ]
+        academic_course_score = sum(1 for p in academic_course_patterns if re.search(p, lower))
+        if academic_course_score >= 2:
+            return False, "This document appears to be an academic course syllabus or assignment, not a candidate resume."
+
+        # H. Research Papers & Journal Articles
+        research_paper_patterns = [
+            r"\babstract\s*:\s*\n",
+            r"\bdoi\s*:\s*10\.\d{4,9}/",
+            r"\bliterature\s+review\b",
+            r"\bproceedings\s+of\s+the\b",
+            r"\bconcluding\s+remarks\b",
+            r"\bmaterials\s+and\s+methods\b",
+            r"\bresults\s+and\s+discussion\b",
+        ]
+        research_paper_score = sum(1 for p in research_paper_patterns if re.search(p, lower))
+        if research_paper_score >= 2:
+            return False, "This document appears to be an academic research paper or journal publication, not a candidate resume."
+
+        # =========================================================================
+        # 2. POSITIVE RESUME STRUCTURE EVALUATION
+        # =========================================================================
+
+        # Check for standalone section headers (line-anchored or uppercase heading)
+        exp_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:professional\s+|work\s+|career\s+|relevant\s+|industry\s+)?(?:experience|employment|work\s+history|internships?)|internship\s+experience)\s*[:]?$",
+            re.IGNORECASE
+        )
+        edu_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:academic\s+|educational\s+)?(?:education|qualifications|academic\s+background|academics))\s*[:]?$",
+            re.IGNORECASE
+        )
+        skills_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:technical\s+|core\s+|professional\s+|key\s+)?(?:skills|competencies|technologies|tech\s+stack|tools\s*(?:&|and)\s*technologies|areas\s+of\s+expertise))\s*[:]?$",
+            re.IGNORECASE
+        )
+        proj_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:key\s+|personal\s+|academic\s+|technical\s+)?(?:projects|portfolio))\s*[:]?$",
+            re.IGNORECASE
+        )
+        sum_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:professional\s+|career\s+|executive\s+)?(?:summary|profile|objective|about\s+me))\s*[:]?$",
+            re.IGNORECASE
+        )
+        cert_pattern = re.compile(
+            r"^(?:(?:\d+[\.\)]\s*)?(?:licenses\s*(?:&|and)\s*)?(?:certifications?|credentials|achievements?|awards))\s*[:]?$",
+            re.IGNORECASE
+        )
+
+        has_exp = False
+        has_edu = False
+        has_skills = False
+        has_proj = False
+        has_sum = False
+        has_cert = False
+
+        for line in lines:
+            cleaned_line = line.strip("#*-_ \t")
+            if not cleaned_line or len(cleaned_line) > 55:
+                continue
+            if exp_pattern.match(cleaned_line):
+                has_exp = True
+            elif edu_pattern.match(cleaned_line):
+                has_edu = True
+            elif skills_pattern.match(cleaned_line):
+                has_skills = True
+            elif proj_pattern.match(cleaned_line):
+                has_proj = True
+            elif sum_pattern.match(cleaned_line):
+                has_sum = True
+            elif cert_pattern.match(cleaned_line):
+                has_cert = True
+
+        # Also support single-line section starts like 'Skills: Python, Java...' or 'Education: B.Tech...'
+        for line in lines:
+            if re.match(r"^(?:technical\s+)?skills\s*:\s*[a-zA-Z]", line, re.I):
+                has_skills = True
+            if re.match(r"^(?:education|degree)\s*:\s*[a-zA-Z]", line, re.I):
+                has_education = True
+            if re.match(r"^(?:experience|work\s+history)\s*:\s*[a-zA-Z]", line, re.I):
+                has_exp = True
+
+        section_count = sum([has_exp, has_edu, has_skills, has_proj, has_sum, has_cert])
+
+        # Candidate contact signals
+        has_email = bool(re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", clean))
+        has_phone = bool(re.search(r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b", clean))
+        has_profile = bool(re.search(r"linkedin\.com/in/|github\.com/|gitlab\.com/", lower))
+        contact_count = sum([has_email, has_phone, has_profile])
+
+        # Career timeline and credentials
+        has_date_range = bool(re.search(
+            r"\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|present|current)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(?:19|20)\d{2}|present|current)\b",
+            lower
+        ))
+        has_degree = bool(re.search(r"\b(bachelor|master|b\.?tech|m\.?tech|b\.?e\b|m\.?e\b|b\.?s\b|m\.?s\b|bca|mca|ph\.?d|diploma|degree\s+in|university|college|institute|cgpa|gpa)\b", lower))
+        has_roles = bool(re.search(r"\b(software\s+engineer|web\s+developer|developer|engineer|full\s*stack|backend|frontend|data\s+scientist|product\s+manager|devops|cloud\s+architect|intern)\b", lower))
+
+        career_score = sum([has_date_range, has_degree, has_roles])
+
+        # Standard resumes: 2+ standard section headers
+        if section_count >= 2:
             return True, ""
-        if section_headers >= 1 and (career_signals >= 1 or contact_signals >= 1):
+
+        # Resumes with 1 explicit section header + contact details or career timeline
+        if section_count >= 1 and (contact_count >= 1 or career_score >= 2):
             return True, ""
-        if contact_signals >= 2 and career_signals >= 2:
+
+        # Compact / single-column resumes without header styling but clear contact and timeline signals
+        if contact_count >= 2 and career_score >= 2:
             return True, ""
 
         return False, "This document does not appear to be a resume. It is missing standard resume sections such as work experience, education, or professional skills."

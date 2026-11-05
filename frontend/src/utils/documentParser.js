@@ -150,56 +150,253 @@ export function validateIsResume(text) {
   }
 
   const lower = clean.toLowerCase();
+  const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  // Negative indicators
-  const invoiceMatches = (lower.match(/\b(invoice|inv-\d+|amount\s+due|subtotal|balance\s+due|bill\s+to|ship\s+to|unit\s+price|payment\s+terms|payment\s+method|purchase\s+order|tax\s+rate|remit\s+to|qty\b)\b/g) || []).length;
-  const legalMatches = (lower.match(/\b(terms\s+of\s+(?:service|use)|privacy\s+policy|end\s+user\s+license|arbitration\s+clause|governing\s+law|indemnif(?:y|ication)|herein\b|whereas\b|witnesseth)\b/g) || []).length;
-  const bankMatches = (lower.match(/\b(statement\s+of\s+account|account\s+statement|opening\s+balance|closing\s+balance|withdrawal\b|interest\s+earned|transaction\s+history|available\s+balance)\b/g) || []).length;
-  const recipeMatches = (lower.match(/\b(ingredients\s*:|prep\s+time|cook\s+time|preheat\s+oven|tablespoon|teaspoon|cups?\s+of)\b/g) || []).length;
-  const academicMatches = (lower.match(/\b(abstract\s*:\s*|table\s+of\s+contents|literature\s+review|doi\s*:\s*10\.\d+|proceedings\s+of\s+the)\b/g) || []).length;
+  // =========================================================================
+  // 1. SPECIFIC NON-RESUME DOCUMENT DISQUALIFIERS (Checked first)
+  // =========================================================================
 
-  // Positive resume section headers
-  let sectionHeaders = 0;
-  if (/\b(experience|work\s+experience|employment\s+history|work\s+history|professional\s+experience|career\s+history|internships?)\b/.test(lower)) sectionHeaders++;
-  if (/\b(education|academic\s+background|qualifications|academics|educational\s+qualifications?)\b/.test(lower)) sectionHeaders++;
-  if (/\b(skills|technical\s+skills|core\s+competencies|competencies|tech\s+stack|technologies|tools\s*(&|and)\s*technologies|key\s+skills|areas\s+of\s+expertise)\b/.test(lower)) sectionHeaders++;
-  if (/\b(projects|key\s+projects|personal\s+projects|academic\s+projects|portfolio)\b/.test(lower)) sectionHeaders++;
-  if (/\b(professional\s+summary|summary|profile|about\s+me|career\s+objective|objective|executive\s+summary)\b/.test(lower)) sectionHeaders++;
-  if (/\b(certifications?|licenses?|credentials|awards?|achievements?|publications?)\b/.test(lower)) sectionHeaders++;
+  // A. Job Descriptions / Vacancy Announcements
+  const jdPatterns = [
+    /\b(?:job|position|role)\s+description\b/,
+    /\b(?:about\s+the|position|role)\s+overview\b/,
+    /\bwe\s+are\s+(?:looking\s+for|seeking|hiring)\b/,
+    /\bwhat\s+you(?:'ll|\s+will)\s+do\b/,
+    /\bwhat\s+we(?:'re|\s+are)?\s+offer(?:ing)?\b/,
+    /\bkey\s+responsibilities\s*:/,
+    /\b(?:minimum|preferred|basic)\s+qualifications\s*:/,
+    /\bresponsibilities\s*:\s*/,
+    /\brequirements\s*:\s*/,
+    /\bequal\s+opportunity\s+employer\b/,
+    /\bhow\s+to\s+apply\b/,
+    /\bapply\s+(?:for\s+this\s+job|now\b|at\s+https?:)/,
+    /\bsubmit\s+your\s+application\b/,
+    /\bsalary\s+range\s*:\s*[$£€₹]?/,
+    /\bthe\s+ideal\s+candidate\s+will\b/,
+    /\breporting\s+to\s+the\b/,
+    /\bcompensation\s+(?:&|and)\s+benefits\b/
+  ];
+  const jdScore = jdPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if ((/\b(?:job\s+description|about\s+the\s+role|equal\s+opportunity\s+employer|how\s+to\s+apply|we\s+are\s+hiring|what\s+you'll\s+do)\b/.test(lower) && jdScore >= 2) || jdScore >= 3) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be a job description or vacancy posting, not a candidate resume.'
+    };
+  }
 
-  // Contact signals
-  let contactSignals = 0;
-  if (/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/.test(clean)) contactSignals++;
-  if (/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b/.test(clean)) contactSignals++;
-  if (/linkedin\.com|github\.com|gitlab\.com/.test(lower)) contactSignals++;
+  // B. Offer Letters & Employment Agreements
+  const offerPatterns = [
+    /\boffer\s+of\s+employment\b/,
+    /\bwe\s+are\s+pleased\s+to\s+offer\s+you\b/,
+    /\bwe\s+are\s+excited\s+to\s+offer\s+you\b/,
+    /\bformal\s+offer\b/,
+    /\bemployment\s+agreement\b/,
+    /\bacceptance\s+of\s+offer\b/,
+    /\bterms\s+of\s+employment\b/,
+    /\bappointment\s+letter\b/,
+    /\bbase\s+salary\s+of\b/,
+    /\bannual\s+base\s+salary\b/,
+    /\bstarting\s+salary\s+of\b/,
+    /\bstart\s+date\s+will\s+be\b/,
+    /\bofficial\s+start\s+date\b/,
+    /\bplease\s+sign\s+and\s+return\b/,
+    /\bcontingent\s+upon\s+(?:a\s+)?background\s+check\b/,
+    /\bat-will\s+employment\b/
+  ];
+  const offerScore = offerPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if ((/\b(?:offer\s+of\s+employment|we\s+are\s+pleased\s+to\s+offer|employment\s+agreement|formal\s+offer|appointment\s+letter)\b/.test(lower) && offerScore >= 1) || offerScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be an employment offer letter or contract, not a candidate resume.'
+    };
+  }
 
-  // Career indicators
-  const hasDateRanges = /\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|present|current)\b/.test(lower);
+  // C. Letters of Recommendation (LOR) & References
+  const lorPatterns = [
+    /\bletter\s+of\s+recommendation\b/,
+    /\brecommendation\s+letter\b/,
+    /\bto\s+whom\s+it\s+may\s+concern\b/,
+    /\bi\s+am\s+(?:writing|pleased)\s+to\s+recommend\b/,
+    /\bi\s+(?:wholeheartedly|strongly|highly)\s+recommend\b/,
+    /\bit\s+is\s+(?:with\s+great\s+pleasure|my\s+pleasure)\s+to\s+recommend\b/,
+    /\bletter\s+of\s+reference\b/,
+    /\brecommend\s+[a-z\s]+\s+for\s+(?:admission|the\s+position)\b/
+  ];
+  const lorScore = lorPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (lorScore >= 1 && (/\b(?:to\s+whom\s+it\s+may\s+concern|letter\s+of\s+recommendation|recommendation\s+letter)\b/.test(lower) || lorScore >= 2)) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be a letter of recommendation or reference letter, not a candidate resume.'
+    };
+  }
+
+  // D. Certificates, Diplomas & Course Credentials
+  const certPatterns = [
+    /\bcertificate\s+of\s+(?:completion|achievement|participation|appreciation|attendance|excellence)\b/,
+    /\bthis\s+is\s+to\s+certify\s+that\b/,
+    /\bthis\s+certificate\s+is\s+(?:proudly\s+)?awarded\s+to\b/,
+    /\bhereby\s+certifies\s+that\b/,
+    /\bhas\s+successfully\s+completed\s+(?:the\s+)?(?:course|program|training|specialization)\b/,
+    /\bhas\s+demonstrated\s+proficiency\s+in\b/,
+    /\bcertificate\s+id\s*:\s*[a-z0-9_-]+/,
+    /\bcredential\s+id\s*:\s*[a-z0-9_-]+/,
+    /\bverify\s+at\s*:\s*https?:\/\//
+  ];
+  const certScore = certPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (certScore >= 1 && (/\b(?:certificate\s+of\s+(?:completion|achievement|participation)|this\s+is\s+to\s+certify\s+that|hereby\s+certifies\s+that|has\s+successfully\s+completed)\b/.test(lower) || certScore >= 2)) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be a course certificate or credential award, not a complete resume.'
+    };
+  }
+
+  // E. Invoices, Receipts & Financial Documents
+  const invoicePatterns = [
+    /\b(?:tax\s+)?invoice\s*#?\s*[a-z0-9_-]+/,
+    /\b(?:amount|total|balance)\s+due\s*:\s*[$£€₹]?/,
+    /\b(?:subtotal|total\s+amount)\s*:\s*[$£€₹]?/,
+    /\bbill\s+to\s*:/,
+    /\bship\s+to\s*:/,
+    /\bpayment\s+(?:terms|due\s+date|method)\s*:/,
+    /\bremit\s+(?:payment\s+)?to\b/,
+    /\bpurchase\s+order\s*#?\s*[a-z0-9_-]+/,
+    /\bstatement\s+of\s+account\b/,
+    /\bopening\s+balance\b/
+  ];
+  const invoiceScore = invoicePatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (invoiceScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be an invoice, billing receipt, or financial statement, not a resume.'
+    };
+  }
+
+  // F. Legal Contracts, Policies & Terms of Service
+  const legalPatterns = [
+    /\bterms\s+of\s+(?:service|use)\b/,
+    /\bprivacy\s+policy\b/,
+    /\bend\s+user\s+license\s+agreement\b/,
+    /\bnon-disclosure\s+agreement\b/,
+    /\barbitration\s+clause\b/,
+    /\bgoverning\s+law\b/,
+    /\bindemnif(?:y|ification|ities)\b/,
+    /\bintellectual\s+property\s+rights\b/,
+    /\bin\s+witness\s+whereof\b/
+  ];
+  const legalScore = legalPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (legalScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be a legal terms, policy, or agreement document, not a resume.'
+    };
+  }
+
+  // G. Academic Syllabi, Assignments & Lab Reports
+  const academicCoursePatterns = [
+    /\bcourse\s+syllabus\b/,
+    /\bsyllabus\s+for\b/,
+    /\bgrading\s+policy\b/,
+    /\boffice\s+hours\s*:\s*/,
+    /\bprerequisites\s*:\s*/,
+    /\blab\s+report\s*:\s*/,
+    /\bassignment\s*#\s*\d+/,
+    /\bhomework\s*#\s*\d+/,
+    /\bproblem\s+set\s*#?\s*\d+/,
+    /\blecture\s+notes\b/,
+    /\bteaching\s+assistant\s*:\s*/
+  ];
+  const academicCourseScore = academicCoursePatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (academicCourseScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be an academic course syllabus or assignment, not a candidate resume.'
+    };
+  }
+
+  // H. Research Papers & Journal Articles
+  const researchPaperPatterns = [
+    /\babstract\s*:\s*\n/,
+    /\bdoi\s*:\s*10\.\d{4,9}\//,
+    /\bliterature\s+review\b/,
+    /\bproceedings\s+of\s+the\b/,
+    /\bconcluding\s+remarks\b/,
+    /\bmaterials\s+and\s+methods\b/,
+    /\bresults\s+and\s+discussion\b/
+  ];
+  const researchPaperScore = researchPaperPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (researchPaperScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be an academic research paper or journal publication, not a candidate resume.'
+    };
+  }
+
+  // =========================================================================
+  // 2. POSITIVE RESUME STRUCTURE EVALUATION
+  // =========================================================================
+
+  const expPattern = /^(?:(?:\d+[\.\)]\s*)?(?:professional\s+|work\s+|career\s+|relevant\s+|industry\s+)?(?:experience|employment|work\s+history|internships?)|internship\s+experience)\s*[:]?$/i;
+  const eduPattern = /^(?:(?:\d+[\.\)]\s*)?(?:academic\s+|educational\s+)?(?:education|qualifications|academic\s+background|academics))\s*[:]?$/i;
+  const skillsPattern = /^(?:(?:\d+[\.\)]\s*)?(?:technical\s+|core\s+|professional\s+|key\s+)?(?:skills|competencies|technologies|tech\s+stack|tools\s*(?:&|and)\s*technologies|areas\s+of\s+expertise))\s*[:]?$/i;
+  const projsPattern = /^(?:(?:\d+[\.\)]\s*)?(?:key\s+|personal\s+|academic\s+|technical\s+)?(?:projects|portfolio))\s*[:]?$/i;
+  const sumPattern = /^(?:(?:\d+[\.\)]\s*)?(?:professional\s+|career\s+|executive\s+)?(?:summary|profile|objective|about\s+me))\s*[:]?$/i;
+  const certPattern = /^(?:(?:\d+[\.\)]\s*)?(?:licenses\s*(?:&|and)\s*)?(?:certifications?|credentials|achievements?|awards))\s*[:]?$/i;
+
+  let hasExp = false;
+  let hasEdu = false;
+  let hasSkills = false;
+  let hasProj = false;
+  let hasSum = false;
+  let hasCert = false;
+
+  for (const line of lines) {
+    const cleanedLine = line.replace(/^[#*_\-\s]+|[#*_\-\s]+$/g, '');
+    if (!cleanedLine || cleanedLine.length > 55) continue;
+
+    if (expPattern.test(cleanedLine)) hasExp = true;
+    else if (eduPattern.test(cleanedLine)) hasEdu = true;
+    else if (skillsPattern.test(cleanedLine)) hasSkills = true;
+    else if (projsPattern.test(cleanedLine)) hasProj = true;
+    else if (sumPattern.test(cleanedLine)) hasSum = true;
+    else if (certPattern.test(cleanedLine)) hasCert = true;
+  }
+
+  // Also support inline section starts like 'Skills: Python, React...' or 'Education: B.S...'
+  for (const line of lines) {
+    if (/^(?:technical\s+)?skills\s*:\s*[a-zA-Z]/i.test(line)) hasSkills = true;
+    if (/^(?:education|degree)\s*:\s*[a-zA-Z]/i.test(line)) hasEdu = true;
+    if (/^(?:experience|work\s+history)\s*:\s*[a-zA-Z]/i.test(line)) hasExp = true;
+  }
+
+  const sectionCount = [hasExp, hasEdu, hasSkills, hasProj, hasSum, hasCert].filter(Boolean).length;
+
+  // Candidate contact signals
+  const hasEmail = /[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/.test(clean);
+  const hasPhone = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b/.test(clean);
+  const hasProfile = /linkedin\.com\/in\/|github\.com\/|gitlab\.com\//.test(lower);
+  const contactCount = [hasEmail, hasPhone, hasProfile].filter(Boolean).length;
+
+  // Career timeline & credentials
+  const hasDateRange = /\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|present|current)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(?:19|20)\d{2}|present|current)\b/.test(lower);
   const hasDegree = /\b(bachelor|master|b\.?tech|m\.?tech|b\.?e\b|m\.?e\b|b\.?s\b|m\.?s\b|bca|mca|ph\.?d|diploma|degree\s+in|university|college|institute|cgpa|gpa)\b/.test(lower);
-  const roleMatches = (lower.match(/\b(developer|engineer|manager|analyst|consultant|architect|designer|intern|specialist|lead|administrator|director|coordinator|assistant|officer|programmer)\b/g) || []).length;
+  const hasRoles = /\b(software\s+engineer|web\s+developer|developer|engineer|full\s*stack|backend|frontend|data\s+scientist|product\s+manager|devops|cloud\s+architect|intern)\b/.test(lower);
 
-  // Check negative overrides
-  if (invoiceMatches >= 3 && sectionHeaders < 2) {
-    return { isValid: false, reason: 'This document appears to be an invoice or billing receipt, not a resume.' };
-  }
-  if (legalMatches >= 2 && sectionHeaders < 2) {
-    return { isValid: false, reason: 'This document appears to be a legal contract or policy document, not a resume.' };
-  }
-  if (bankMatches >= 2 && sectionHeaders < 2) {
-    return { isValid: false, reason: 'This document appears to be a financial or bank statement, not a resume.' };
-  }
-  if (recipeMatches >= 2 && sectionHeaders < 2) {
-    return { isValid: false, reason: 'This document appears to be a recipe or cooking instructions, not a resume.' };
-  }
-  if (academicMatches >= 2 && sectionHeaders < 2 && contactSignals === 0) {
-    return { isValid: false, reason: 'This document appears to be an academic paper or publication, not a resume.' };
+  const careerScore = [hasDateRange, hasDegree, hasRoles].filter(Boolean).length;
+
+  // Standard resumes: 2+ standard section headers
+  if (sectionCount >= 2) {
+    return { isValid: true };
   }
 
-  const careerSignals = (hasDateRanges ? 1 : 0) + (hasDegree ? 1 : 0) + (roleMatches >= 1 ? 1 : 0);
+  // Resumes with 1 explicit section header + contact details or career timeline
+  if (sectionCount >= 1 && (contactCount >= 1 || careerScore >= 2)) {
+    return { isValid: true };
+  }
 
-  if (sectionHeaders >= 2) return { isValid: true };
-  if (sectionHeaders >= 1 && (careerSignals >= 1 || contactSignals >= 1)) return { isValid: true };
-  if (contactSignals >= 2 && careerSignals >= 2) return { isValid: true };
+  // Compact / single-column resumes without header styling but clear contact and timeline signals
+  if (contactCount >= 2 && careerScore >= 2) {
+    return { isValid: true };
+  }
 
   return {
     isValid: false,
