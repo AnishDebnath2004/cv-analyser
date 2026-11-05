@@ -6,7 +6,7 @@ import OccupationDetailModal from './components/OccupationDetailModal';
 import AuthModal from './components/AuthModal';
 import SettingsModal from './components/SettingsModal';
 import ResumeBuilderModal from './components/ResumeBuilderModal';
-import { extractTextFromFile } from './utils/documentParser';
+import { extractTextFromFile, validateIsResume } from './utils/documentParser';
 import './App.css';
 
 export default function App() {
@@ -27,6 +27,7 @@ export default function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
+  const [uploadWarning, setUploadWarning] = useState(null);
   const [onetStatus, setOnetStatus] = useState({ connected: false, message: 'O*NET Knowledge Base Active' });
   const [selectedOccupation, setSelectedOccupation] = useState(null);
 
@@ -191,6 +192,8 @@ export default function App() {
   const handleAnalyzeFile = async (file) => {
     if (!file) return;
 
+    setUploadWarning(null);
+
     // Check file size (Vercel serverless request body cap is 4.5MB)
     const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
     if (file.size > MAX_SIZE_BYTES) {
@@ -203,13 +206,22 @@ export default function App() {
     setLoadingStep('Reading document content...');
 
     // 1. Try client-side text extraction first
-    // This transforms a 186KB - 4MB PDF/DOCX file into a 2KB - 8KB pure text payload,
-    // which completely bypasses Vercel Python serverless 64KB pipe buffer limits and cellular dropouts.
     try {
       const extractedText = await extractTextFromFile(file);
       if (extractedText && extractedText.trim().length > 30) {
+        // Validate whether extracted text looks like a real resume
+        const validation = validateIsResume(extractedText);
+        if (!validation.isValid) {
+          setIsLoading(false);
+          setUploadWarning({
+            filename: file.name,
+            message: validation.reason || 'This document does not appear to be a resume. Please upload a valid resume or CV.'
+          });
+          return;
+        }
+
         setIsLoading(false);
-        return await handleAnalyzeText(extractedText);
+        return await handleAnalyzeText(extractedText, file.name);
       }
     } catch (extractErr) {
       console.warn('Client-side extraction failed, trying direct server upload:', extractErr);
@@ -246,6 +258,16 @@ export default function App() {
             errorMsg = `Server error (Status ${res.status})`;
           }
         }
+
+        // Check if server indicated non-resume document
+        if (res.status === 422 || (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('not a resume'))) {
+          setUploadWarning({
+            filename: file.name,
+            message: typeof errorMsg === 'string' ? errorMsg : 'This document does not appear to be a resume. Please upload a valid resume or CV.'
+          });
+          return;
+        }
+
         throw new Error(errorMsg);
       }
 
@@ -263,9 +285,21 @@ export default function App() {
     }
   };
 
-  const handleAnalyzeText = async (text) => {
+  const handleAnalyzeText = async (text, fileName = '') => {
     if (!text || !text.trim()) {
       alert('Please enter or paste your resume text.');
+      return;
+    }
+
+    setUploadWarning(null);
+
+    // Validate if text is a resume
+    const validation = validateIsResume(text);
+    if (!validation.isValid) {
+      setUploadWarning({
+        filename: fileName || 'Uploaded Document',
+        message: validation.reason || 'This document does not appear to be a resume. Please upload a valid resume or CV.'
+      });
       return;
     }
 
@@ -287,7 +321,17 @@ export default function App() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server error (${res.status})`);
+        const detailMsg = errorData.detail || `Server error (${res.status})`;
+
+        if (res.status === 422 || (typeof detailMsg === 'string' && detailMsg.toLowerCase().includes('not a resume'))) {
+          setUploadWarning({
+            filename: fileName || 'Uploaded Document',
+            message: typeof detailMsg === 'string' ? detailMsg : 'This document does not appear to be a resume. Please upload a valid resume or CV.'
+          });
+          return;
+        }
+
+        throw new Error(detailMsg);
       }
 
       const data = await res.json();
@@ -373,6 +417,8 @@ export default function App() {
             currentUser={currentUser}
             onAuthSuccess={handleAuthSuccess}
             onLogout={handleLogout}
+            uploadWarning={uploadWarning}
+            onClearWarning={() => setUploadWarning(null)}
           />
         ) : (
           <AnalysisDashboard

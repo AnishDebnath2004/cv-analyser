@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, ArrowRight, Compass, FileCheck, Layers, AlertCircle, FileText } from 'lucide-react';
+import { UploadCloud, ArrowRight, Compass, FileCheck, Layers, AlertCircle, AlertTriangle, FileText, X } from 'lucide-react';
 
 export default function UploadSection({
   onAnalyzeFile,
@@ -9,7 +9,9 @@ export default function UploadSection({
   loadingStep,
   currentUser,
   onAuthSuccess,
-  onLogout
+  onLogout,
+  uploadWarning,
+  onClearWarning
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState('');
@@ -19,6 +21,7 @@ export default function UploadSection({
 
   const validateAndUpload = (file) => {
     setFileError('');
+    if (onClearWarning) onClearWarning();
     if (!file) return;
 
     if (file.size > MAX_SIZE_BYTES) {
@@ -105,6 +108,81 @@ export default function UploadSection({
               <div className="auth-alert auth-alert-error" style={{ marginBottom: 16 }}>
                 <AlertCircle size={16} />
                 <span>{fileError}</span>
+              </div>
+            )}
+
+            {/* Non-Resume Document Warning Card */}
+            {uploadWarning && (
+              <div className="resume-warning-card animate-fade-in">
+                <div className="resume-warning-header">
+                  <div className="resume-warning-icon-box">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div className="resume-warning-title-group">
+                    <div className="resume-warning-badge">
+                      <span>Document Notice</span>
+                    </div>
+                    <h3 className="resume-warning-heading">This document does not appear to be a resume</h3>
+                  </div>
+                  {onClearWarning && (
+                    <button
+                      type="button"
+                      className="resume-warning-close-btn"
+                      onClick={onClearWarning}
+                      title="Dismiss warning"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+
+                <p className="resume-warning-message">
+                  {uploadWarning.message || "We reviewed this file, but could not detect standard resume sections such as work experience, education, or professional competencies."}
+                </p>
+
+                {uploadWarning.filename && (
+                  <div className="resume-warning-file-pill">
+                    <FileText size={14} />
+                    <span>Uploaded: <strong>{uploadWarning.filename}</strong></span>
+                  </div>
+                )}
+
+                <div className="resume-warning-criteria">
+                  <div className="warning-criteria-title">A valid resume or CV typically includes:</div>
+                  <ul className="warning-criteria-list">
+                    <li><strong>Contact Information:</strong> Your name, email address, or phone number</li>
+                    <li><strong>Work History / Experience:</strong> Roles, internships, job titles, and dates</li>
+                    <li><strong>Education:</strong> Academic degrees, certifications, or colleges attended</li>
+                    <li><strong>Skills:</strong> Technical proficiencies, tools, and domain competencies</li>
+                  </ul>
+                </div>
+
+                <div className="resume-warning-actions">
+                  <button
+                    type="button"
+                    className="btn-primary resume-warning-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onClearWarning) onClearWarning();
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <UploadCloud size={16} />
+                    <span>Select Another File</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-secondary resume-warning-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenBuilder();
+                    }}
+                  >
+                    <FileText size={15} />
+                    <span>Build Resume with Pathfinder</span>
+                  </button>
+                </div>
               </div>
             )}
 

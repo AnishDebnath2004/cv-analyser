@@ -367,6 +367,11 @@ async def analyze_upload(file: UploadFile = File(...)):
     if not raw_text.strip():
         raise HTTPException(status_code=400, detail="The uploaded document contains no readable text. Please check the file.")
 
+    # Validate that the uploaded document is actually a resume/CV
+    is_resume_valid, resume_warning = ResumeParser.validate_is_resume(raw_text)
+    if not is_resume_valid:
+        raise HTTPException(status_code=422, detail=resume_warning)
+
     try:
         agent = get_cv_agent()
         result = await agent.analyze(raw_text)
@@ -383,7 +388,12 @@ async def analyze_text(payload: TextAnalyzeRequest):
     """Analyze pasted resume text."""
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Resume text cannot be empty.")
-    
+
+    # Validate that the provided text is actually a resume/CV
+    is_resume_valid, resume_warning = ResumeParser.validate_is_resume(payload.text)
+    if not is_resume_valid:
+        raise HTTPException(status_code=422, detail=resume_warning)
+
     try:
         agent = get_cv_agent()
         result = await agent.analyze(payload.text)

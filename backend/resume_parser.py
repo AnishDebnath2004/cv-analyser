@@ -92,6 +92,91 @@ class ResumeParser:
         except Exception as e:
             raise ValueError(f"Failed to parse DOCX document: {str(e)}")
 
+    @classmethod
+    def validate_is_resume(cls, text: str) -> Tuple[bool, str]:
+        """
+        Determines whether the provided document text is a valid resume/CV.
+        Returns (True, "") if valid, or (False, "User-friendly explanation") if not a resume.
+        """
+        if not text:
+            return False, "The uploaded file contains no readable text. Please upload a valid PDF, DOCX, or text file."
+
+        clean = text.strip()
+        words = clean.split()
+        if len(words) < 25 or len(clean) < 120:
+            return False, "The uploaded document contains too little text to be a resume. Please upload a complete resume or CV."
+
+        text_lower = clean.lower()
+
+        # 1. Non-resume negative indicators
+        invoice_markers = len(re.findall(r"\b(invoice|inv-\d+|amount\s+due|subtotal|balance\s+due|bill\s+to|ship\s+to|unit\s+price|payment\s+terms|payment\s+method|purchase\s+order|tax\s+rate|remit\s+to|qty\b)\b", text_lower))
+        legal_markers = len(re.findall(r"\b(terms\s+of\s+(?:service|use)|privacy\s+policy|end\s+user\s+license|arbitration\s+clause|governing\s+law|indemnif(?:y|ication)|herein\b|whereas\b|witnesseth)\b", text_lower))
+        bank_markers = len(re.findall(r"\b(statement\s+of\s+account|account\s+statement|opening\s+balance|closing\s+balance|withdrawal\b|interest\s+earned|transaction\s+history|available\s+balance)\b", text_lower))
+        recipe_markers = len(re.findall(r"\b(ingredients\s*:|prep\s+time|cook\s+time|preheat\s+oven|tablespoon|teaspoon|cups?\s+of)\b", text_lower))
+        academic_paper_markers = len(re.findall(r"\b(abstract\s*:\s*|table\s+of\s+contents|literature\s+review|doi\s*:\s*10\.\d+|proceedings\s+of\s+the)\b", text_lower))
+
+        # 2. Section headers
+        section_headers = 0
+        if re.search(r"\b(experience|work\s+experience|employment\s+history|work\s+history|professional\s+experience|career\s+history|internships?)\b", text_lower):
+            section_headers += 1
+        if re.search(r"\b(education|academic\s+background|qualifications|academics|educational\s+qualifications?)\b", text_lower):
+            section_headers += 1
+        if re.search(r"\b(skills|technical\s+skills|core\s+competencies|competencies|tech\s+stack|technologies|tools\s*(&|and)\s*technologies|key\s+skills|areas\s+of\s+expertise)\b", text_lower):
+            section_headers += 1
+        if re.search(r"\b(projects|key\s+projects|personal\s+projects|academic\s+projects|portfolio)\b", text_lower):
+            section_headers += 1
+        if re.search(r"\b(professional\s+summary|summary|profile|about\s+me|career\s+objective|objective|executive\s+summary)\b", text_lower):
+            section_headers += 1
+        if re.search(r"\b(certifications?|licenses?|credentials|awards?|achievements?|publications?)\b", text_lower):
+            section_headers += 1
+
+        # 3. Contact signals
+        contact_signals = 0
+        if re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", clean):
+            contact_signals += 1
+        if re.search(r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10}\b", clean):
+            contact_signals += 1
+        if re.search(r"linkedin\.com|github\.com|gitlab\.com", text_lower):
+            contact_signals += 1
+
+        # 4. Career signals
+        date_ranges = bool(re.search(r"\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:(?:19|20)\d{2}|present|current)\b", text_lower))
+        degree_matches = bool(re.search(r"\b(bachelor|master|b\.?tech|m\.?tech|b\.?e\b|m\.?e\b|b\.?s\b|m\.?s\b|bca|mca|ph\.?d|diploma|degree\s+in|university|college|institute|cgpa|gpa)\b", text_lower))
+        role_matches = len(re.findall(r"\b(developer|engineer|manager|analyst|consultant|architect|designer|intern|specialist|lead|administrator|director|coordinator|assistant|officer|programmer)\b", text_lower))
+
+        found_skills = 0
+        for cat, sk_list in TECH_SKILLS_TAXONOMY.items():
+            for sk in sk_list[:12]:
+                if f" {sk.lower()} " in f" {text_lower} ":
+                    found_skills += 1
+                    if found_skills >= 4:
+                        break
+            if found_skills >= 4:
+                break
+
+        # Check negative overrides
+        if invoice_markers >= 3 and section_headers < 2:
+            return False, "This document appears to be an invoice or billing receipt, not a resume."
+        if legal_markers >= 2 and section_headers < 2:
+            return False, "This document appears to be a legal contract or policy document, not a resume."
+        if bank_markers >= 2 and section_headers < 2:
+            return False, "This document appears to be a financial or bank statement, not a resume."
+        if recipe_markers >= 2 and section_headers < 2:
+            return False, "This document appears to be a culinary recipe or cooking guide, not a resume."
+        if academic_paper_markers >= 2 and section_headers < 2 and contact_signals == 0:
+            return False, "This document appears to be an academic paper or publication, not a resume."
+
+        career_signals = (1 if date_ranges else 0) + (1 if degree_matches else 0) + (1 if role_matches >= 1 else 0) + (1 if found_skills >= 2 else 0)
+
+        if section_headers >= 2:
+            return True, ""
+        if section_headers >= 1 and (career_signals >= 1 or contact_signals >= 1):
+            return True, ""
+        if contact_signals >= 2 and career_signals >= 2:
+            return True, ""
+
+        return False, "This document does not appear to be a resume. It is missing standard resume sections such as work experience, education, or professional skills."
+
     @staticmethod
     def extract_contact_info(text: str) -> Dict[str, Any]:
         """Extract candidate name, email, phone, and online profiles."""
