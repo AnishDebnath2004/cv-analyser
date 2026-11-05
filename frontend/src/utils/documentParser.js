@@ -291,7 +291,30 @@ export function validateIsResume(text) {
     };
   }
 
-  // G. Academic Syllabi, Assignments & Lab Reports
+  // G. Court Judgments, Rulings & Judicial Petitions
+  const courtPatterns = [
+    /\b(?:in\s+the\s+supreme\s+court|in\s+the\s+high\s+court|in\s+the\s+district\s+court)\b/,
+    /\b(?:civil|criminal)\s+appellate\s+jurisdiction\b/,
+    /\bspecial\s+leave\s+petition\b/,
+    /\b(?:civil|criminal)\s+appeal\s+no\b/,
+    /\bwrit\s+petition\s*(?:\([a-z]+\))?\s*no\b/,
+    /\b(?:appellant|respondent|petitioner)\s*\(s\)/,
+    /\bj\s*u\s*d\s*g\s*m\s*e\s*n\s*t\b/,
+    /\bleave\s+granted\b/,
+    /\bimpugned\s+(?:judgment|order)\b/,
+    /\blearned\s+(?:senior\s+)?(?:advocate|counsel)\b/,
+    /\binterlocutory\s+application\b/,
+    /\bquashed\s+and\s+set\s+aside\b/
+  ];
+  const courtScore = courtPatterns.reduce((acc, p) => acc + (p.test(lower) ? 1 : 0), 0);
+  if (courtScore >= 2) {
+    return {
+      isValid: false,
+      reason: 'This document appears to be a court judgment, legal ruling, or judicial petition, not a candidate resume.'
+    };
+  }
+
+  // H. Academic Syllabi, Assignments & Lab Reports
   const academicCoursePatterns = [
     /\bcourse\s+syllabus\b/,
     /\bsyllabus\s+for\b/,

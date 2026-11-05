@@ -224,7 +224,26 @@ class ResumeParser:
         if legal_score >= 2:
             return False, "This document appears to be a legal terms, policy, or agreement document, not a resume."
 
-        # G. Academic Syllabi, Assignments & Lab Reports
+        # G. Court Judgments, Rulings & Judicial Petitions
+        court_patterns = [
+            r"\b(?:in\s+the\s+supreme\s+court|in\s+the\s+high\s+court|in\s+the\s+district\s+court)\b",
+            r"\b(?:civil|criminal)\s+appellate\s+jurisdiction\b",
+            r"\bspecial\s+leave\s+petition\b",
+            r"\b(?:civil|criminal)\s+appeal\s+no\b",
+            r"\bwrit\s+petition\s*(?:\([a-z]+\))?\s*no\b",
+            r"\b(?:appellant|respondent|petitioner)\s*\(s\)",
+            r"\bj\s*u\s*d\s*g\s*m\s*e\s*n\s*t\b",
+            r"\bleave\s+granted\b",
+            r"\bimpugned\s+(?:judgment|order)\b",
+            r"\blearned\s+(?:senior\s+)?(?:advocate|counsel)\b",
+            r"\binterlocutory\s+application\b",
+            r"\bquashed\s+and\s+set\s+aside\b",
+        ]
+        court_score = sum(1 for p in court_patterns if re.search(p, lower))
+        if court_score >= 2:
+            return False, "This document appears to be a court judgment, legal ruling, or judicial petition, not a candidate resume."
+
+        # H. Academic Syllabi, Assignments & Lab Reports
         academic_course_patterns = [
             r"\bcourse\s+syllabus\b",
             r"\bsyllabus\s+for\b",
