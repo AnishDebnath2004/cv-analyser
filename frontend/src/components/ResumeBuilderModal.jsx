@@ -23,6 +23,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { RESUME_TEMPLATES, formatResumeAsText } from '../utils/resumeTemplates';
+import { COUNTRY_CALLING_CODES } from '../utils/countryCodes';
 
 export default function ResumeBuilderModal({
   isOpen = true,
@@ -41,6 +42,30 @@ export default function ResumeBuilderModal({
   const [activeSection, setActiveSection] = useState('personal'); // 'personal' | 'summary' | 'skills' | 'experience' | 'education' | 'projects'
   const previewRef = useRef(null);
 
+  // Phone international calling code & local number state
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+1');
+  const [phoneLocalNumber, setPhoneLocalNumber] = useState('');
+
+  // Extract phone code if initial resume already has one
+  useEffect(() => {
+    if (!resume.personal.phone) {
+      setPhoneLocalNumber('');
+      return;
+    }
+    const matched = COUNTRY_CALLING_CODES.find((c) =>
+      resume.personal.phone.startsWith(c.code + ' ') || resume.personal.phone.startsWith(c.code)
+    );
+    if (matched) {
+      setPhoneCountryCode(matched.code);
+      const remainder = resume.personal.phone.startsWith(matched.code + ' ')
+        ? resume.personal.phone.slice(matched.code.length + 1)
+        : resume.personal.phone.slice(matched.code.length);
+      setPhoneLocalNumber(remainder);
+    } else {
+      setPhoneLocalNumber(resume.personal.phone);
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   // Personal Field Handlers
@@ -52,6 +77,24 @@ export default function ResumeBuilderModal({
         [field]: value
       }
     }));
+  };
+
+  const handleCountryCodeChange = (e) => {
+    const newCode = e.target.value;
+    setPhoneCountryCode(newCode);
+    const combined = phoneLocalNumber.trim()
+      ? (newCode ? `${newCode} ${phoneLocalNumber.trim()}` : phoneLocalNumber.trim())
+      : '';
+    handlePersonalChange('phone', combined);
+  };
+
+  const handlePhoneLocalChange = (e) => {
+    const newLocal = e.target.value;
+    setPhoneLocalNumber(newLocal);
+    const combined = newLocal.trim()
+      ? (phoneCountryCode ? `${phoneCountryCode} ${newLocal.trim()}` : newLocal.trim())
+      : '';
+    handlePersonalChange('phone', combined);
   };
 
   // Summary Handler
@@ -531,14 +574,29 @@ export default function ResumeBuilderModal({
                       />
                     </div>
                     <div className="auth-field">
-                      <label className="auth-label">Phone Number</label>
-                      <input
-                        type="text"
-                        className="auth-input"
-                        placeholder="+1 (555) 234-5678"
-                        value={resume.personal.phone}
-                        onChange={(e) => handlePersonalChange('phone', e.target.value)}
-                      />
+                      <label className="auth-label">Phone Number (Optional)</label>
+                      <div className="builder-phone-group">
+                        <select
+                          className="auth-input builder-phone-code-select"
+                          value={phoneCountryCode}
+                          onChange={handleCountryCodeChange}
+                          title="International Country Calling Code"
+                        >
+                          <option value="">Code</option>
+                          {COUNTRY_CALLING_CODES.map((item, idx) => (
+                            <option key={`${item.iso}-${item.code}-${idx}`} value={item.code}>
+                              {item.flag} {item.name} ({item.code})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          className="auth-input builder-phone-number-input"
+                          placeholder="e.g. (555) 234-5678"
+                          value={phoneLocalNumber}
+                          onChange={handlePhoneLocalChange}
+                        />
+                      </div>
                     </div>
                     <div className="auth-field">
                       <label className="auth-label">Location (City, Country/State)</label>

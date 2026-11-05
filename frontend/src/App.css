@@ -1551,6 +1551,49 @@
   margin-bottom: 14px;
 }
 
+/* Phone input with International Country Calling Code */
+.builder-phone-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.builder-phone-code-select {
+  flex: 0 0 135px;
+  max-width: 145px;
+  cursor: pointer;
+  padding: 10px 8px !important;
+  font-size: 0.84rem;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.builder-phone-code-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.builder-phone-code-select option {
+  background-color: #1e1b4b;
+  color: #f8fafc;
+  padding: 6px 10px;
+}
+
+[data-theme='light'] .builder-phone-code-select option {
+  background-color: #ffffff;
+  color: #1e293b;
+}
+
+.builder-phone-number-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px !important;
+}
+
 .builder-card-item {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
