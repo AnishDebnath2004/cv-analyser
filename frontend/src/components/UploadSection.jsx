@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, ArrowRight, Zap, FileCheck, FileText, Sparkles, AlertCircle } from 'lucide-react';
-import AuthSection from './AuthSection';
 
 export default function UploadSection({
   onAnalyzeFile,
@@ -242,13 +241,6 @@ export default function UploadSection({
           </div>
         )}
       </div>
-
-      {/* Dedicated SignUp / Login Section */}
-      <AuthSection
-        currentUser={currentUser}
-        onAuthSuccess={onAuthSuccess}
-        onLogout={onLogout}
-      />
     </div>
   );
 }
