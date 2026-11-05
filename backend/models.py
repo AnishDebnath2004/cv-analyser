@@ -182,3 +182,18 @@ class MfaSetupResponse(BaseModel):
     qr_preview_url: str
     manual_entry_key: str
 
+
+class SummaryAgentRequest(BaseModel):
+    user_instruction: Optional[str] = ""
+    current_summary: Optional[str] = ""
+    target_title: Optional[str] = ""
+    skills: Optional[Dict[str, str]] = None
+    experience_highlights: Optional[List[str]] = None
+    custom_gemini_key: Optional[str] = None
+
+
+class SummaryAgentResponse(BaseModel):
+    summary: str
+    suggested_refinements: List[str] = []
+
+

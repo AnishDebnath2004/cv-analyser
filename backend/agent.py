@@ -529,3 +529,112 @@ Return ONLY valid JSON.
                 "Which project will best prove my missing skills?"
             ]
         )
+
+    async def generate_professional_summary(
+        self,
+        user_instruction: str = "",
+        current_summary: str = "",
+        target_title: str = "",
+        skills: Optional[Dict[str, str]] = None,
+        experience_highlights: Optional[List[str]] = None,
+        custom_gemini_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate or refine an ATS-optimized professional summary with Gemini AI Agent,
+        adhering directly to the user's instructions and wish.
+        """
+        effective_key = custom_gemini_key or self.gemini_api_key
+
+        if effective_key:
+            try:
+                from google import genai
+
+                client = genai.Client(api_key=effective_key)
+
+                skills_context = ""
+                if skills:
+                    all_skills = []
+                    if skills.get("languages"):
+                        all_skills.append(f"Languages: {skills['languages']}")
+                    if skills.get("frameworks"):
+                        all_skills.append(f"Frameworks: {skills['frameworks']}")
+                    if skills.get("cloudTools"):
+                        all_skills.append(f"Tools & Cloud: {skills['cloudTools']}")
+                    skills_context = "; ".join(all_skills)
+
+                exp_context = ""
+                if experience_highlights:
+                    exp_context = "Recent experience: " + " | ".join(experience_highlights[:4])
+
+                prompt = f"""You are PathFinder AI's Elite ATS Resume Writing Agent.
+Your task is to write or refine a high-impact, ATS-optimized Professional Summary for a candidate's resume.
+
+User's Specific Wish / Instruction:
+"{user_instruction or 'Write a compelling, ATS-friendly professional summary showcasing technical proficiency and drive.'}"
+
+Candidate Background:
+- Target Role / Title: {target_title or 'Technical Professional'}
+- Technical Skills: {skills_context or 'Software development, engineering, and problem-solving'}
+{f'- {exp_context}' if exp_context else ''}
+{f'- Current Summary Draft to Improve: "{current_summary}"' if current_summary else ''}
+
+Rules for the Professional Summary:
+1. Length: 2 to 4 concise, impactful sentences (approx. 50-80 words).
+2. ATS Optimization: Use strong action-oriented language, industry-standard keywords, and quantifiable or competency-driven framing.
+3. Perspective: Standard professional third-person (no "I", "me", "my" or "we").
+4. Directly honor the user's specific wish/tone/focus while maintaining high ATS scores.
+5. Return ONLY the final polished summary paragraph. Do not include quotes, markdown headers, or conversational intros.
+"""
+
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=prompt
+                )
+                if response and response.text:
+                    cleaned = response.text.strip().strip('"').strip("'")
+                    return {
+                        "summary": cleaned,
+                        "suggested_refinements": [
+                            "Make it more concise (2 sentences)",
+                            "Highlight leadership & project delivery",
+                            "Emphasize technical architecture & scale",
+                            "Tailor for high-growth tech startups"
+                        ]
+                    }
+            except Exception as e:
+                logger.warning(f"Gemini summary generation failed: {e}. Falling back to deterministic agent.")
+
+        # Deterministic intelligent fallback
+        title = target_title.strip() if target_title else "Software & Technology Professional"
+        skills_summary = ""
+        if skills:
+            collected = []
+            if skills.get("languages"):
+                collected.append(skills["languages"].split(",")[0].strip())
+            if skills.get("frameworks"):
+                collected.append(skills["frameworks"].split(",")[0].strip())
+            if collected:
+                skills_summary = f" with hands-on proficiency in {', '.join(collected)}"
+
+        wish_note = ""
+        if user_instruction:
+            clean_wish = user_instruction.lower().replace("write a summary", "").replace("write summary", "").strip(" .")
+            if clean_wish:
+                wish_note = f" Known for {clean_wish}."
+
+        fallback_summary = (
+            f"Results-driven {title}{skills_summary} passionate about building scalable, high-quality digital solutions. "
+            f"Demonstrated ability to write clean, maintainable code, rapidly adopt modern tools, and collaborate in agile environments.{wish_note} "
+            f"Committed to delivering measurable business impact and engineering excellence."
+        )
+
+        return {
+            "summary": fallback_summary.strip(),
+            "suggested_refinements": [
+                "Make it more concise (2 sentences)",
+                "Focus on backend scale and microservices",
+                "Emphasize frontend performance and user experience",
+                "Target an entry-level / fresher profile"
+            ]
+        }
+

@@ -22,7 +22,7 @@ try:
         AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
         UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse,
         ForgotPasswordRequest, ResetPasswordRequest, MfaVerifyLoginRequest,
-        MfaEnableRequest, MfaSetupResponse
+        MfaEnableRequest, MfaSetupResponse, SummaryAgentRequest, SummaryAgentResponse
     )
     from backend.resume_parser import ResumeParser
     from backend.onet_service import ONetService
@@ -41,7 +41,7 @@ except ImportError:
         AnalysisResult, ChatRequest, ChatResponse, SettingsModel,
         UserRegisterRequest, UserLoginRequest, UserResponse, AuthResponse,
         ForgotPasswordRequest, ResetPasswordRequest, MfaVerifyLoginRequest,
-        MfaEnableRequest, MfaSetupResponse
+        MfaEnableRequest, MfaSetupResponse, SummaryAgentRequest, SummaryAgentResponse
     )
     from resume_parser import ResumeParser
     from onet_service import ONetService
@@ -479,6 +479,35 @@ async def chat_with_agent(req: ChatRequest):
                 "Which skill gaps should I prioritize first?"
             ]
         )
+
+
+@api_router.post("/builder/generate-summary", response_model=SummaryAgentResponse)
+async def generate_builder_summary(req: SummaryAgentRequest):
+    """AI Agent endpoint to write or refine resume professional summary on demand."""
+    try:
+        agent = get_cv_agent()
+        res = await agent.generate_professional_summary(
+            user_instruction=req.user_instruction or "",
+            current_summary=req.current_summary or "",
+            target_title=req.target_title or "",
+            skills=req.skills,
+            experience_highlights=req.experience_highlights,
+            custom_gemini_key=req.custom_gemini_key or runtime_settings.get("gemini_api_key", ""),
+        )
+        return SummaryAgentResponse(
+            summary=res["summary"],
+            suggested_refinements=res.get("suggested_refinements", [])
+        )
+    except Exception as e:
+        logger.error(f"Summary Agent error: {e}")
+        return SummaryAgentResponse(
+            summary="Results-oriented technical professional with a track record of building reliable, maintainable software and driving project success.",
+            suggested_refinements=[
+                "Make it more concise (2 sentences)",
+                "Highlight technical architecture & scale"
+            ]
+        )
+
 
 
 # Mount router to handle both /api prefixed routes AND root-relative routes seamlessly

@@ -20,7 +20,8 @@ import {
   ArrowRight,
   RotateCcw,
   Compass,
-  Loader2
+  Loader2,
+  Bot
 } from 'lucide-react';
 import { RESUME_TEMPLATES, formatResumeAsText } from '../utils/resumeTemplates';
 import { COUNTRY_CALLING_CODES } from '../utils/countryCodes';
@@ -73,6 +74,81 @@ export default function ResumeBuilderModal({
       setPhoneLocalNumber(resume.personal.phone);
     }
   }, []);
+
+  // AI Summary Writer Agent state
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiProposal, setAiProposal] = useState('');
+  const [aiRefinements, setAiRefinements] = useState([]);
+  const [aiError, setAiError] = useState(null);
+  const [appliedSummary, setAppliedSummary] = useState(false);
+
+  const handleGenerateAiSummary = async (customPrompt) => {
+    const instruction = typeof customPrompt === 'string' ? customPrompt : aiInstruction;
+    setIsAiGenerating(true);
+    setAiError(null);
+
+    // Collect experience highlights
+    const expHighlights = resume.experience
+      .filter((e) => e.role || e.company)
+      .map((e) => `${e.role || 'Role'} at ${e.company || 'Company'}`);
+
+    const payload = {
+      user_instruction: instruction || 'Draft an impactful ATS-optimized summary based on my background.',
+      current_summary: resume.summary || '',
+      target_title: resume.personal.title || '',
+      skills: resume.skills,
+      experience_highlights: expHighlights,
+      custom_gemini_key: localStorage.getItem('pathfinder_gemini_key') || ''
+    };
+
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = localStorage.getItem('pathfinder_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/builder/generate-summary', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`AI Agent service returned status ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.summary) {
+        setAiProposal(data.summary);
+        setAiRefinements(data.suggested_refinements || []);
+      }
+    } catch (err) {
+      console.error('Summary AI Agent error:', err);
+      setAiError(err.message || 'Failed to generate summary');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleApplyAiSummary = () => {
+    if (aiProposal) {
+      handleSummaryChange(aiProposal);
+      setAppliedSummary(true);
+      setTimeout(() => setAppliedSummary(false), 2200);
+    }
+  };
+
+  const handleAppendAiSummary = () => {
+    if (aiProposal) {
+      const current = resume.summary.trim();
+      const updated = current ? `${current} ${aiProposal}` : aiProposal;
+      handleSummaryChange(updated);
+      setAppliedSummary(true);
+      setTimeout(() => setAppliedSummary(false), 2200);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -647,15 +723,201 @@ export default function ResumeBuilderModal({
               {/* 2. Professional Summary */}
               {activeSection === 'summary' && (
                 <div className="builder-form-section animate-fade-in">
-                  <h4 className="builder-section-heading">Professional Summary</h4>
-                  <p className="builder-section-tip">
-                    Write 2 to 4 concise sentences highlighting your core tech competencies, years of experience, and highest impact accomplishments.
-                  </p>
-                  <div className="auth-field">
+                  <div className="builder-section-header-row">
+                    <div>
+                      <h4 className="builder-section-heading">Professional Summary</h4>
+                      <p className="builder-section-tip">
+                        Write 2 to 4 concise sentences highlighting your core tech competencies, years of experience, and highest impact accomplishments.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Summary Writer Agent Card */}
+                  <div className="summary-ai-agent-panel">
+                    <div className="ai-agent-header">
+                      <div className="ai-agent-badge">
+                        <Sparkles size={16} className="ai-sparkle-icon" />
+                        <span className="ai-agent-title">AI Summary Writer Agent</span>
+                      </div>
+                      <span className="ai-agent-chip">Gemini AI Assistant</span>
+                    </div>
+
+                    <p className="ai-agent-desc">
+                      Instruct the AI agent to write your summary according to your wish (e.g. your target role, key strengths, experience level, or desired tone):
+                    </p>
+
+                    {/* Custom instruction prompt input */}
+                    <div className="ai-agent-input-row">
+                      <input
+                        type="text"
+                        className="auth-input ai-agent-input"
+                        placeholder="e.g. Focus on my React and cloud skills, tone: confident & direct"
+                        value={aiInstruction}
+                        onChange={(e) => setAiInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleGenerateAiSummary(aiInstruction);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary ai-agent-generate-btn"
+                        onClick={() => handleGenerateAiSummary(aiInstruction)}
+                        disabled={isAiGenerating}
+                      >
+                        {isAiGenerating ? (
+                          <>
+                            <Loader2 size={15} className="spin-slow" />
+                            <span>Writing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={15} />
+                            <span>Ask AI Agent</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Quick suggestion pills */}
+                    <div className="ai-quick-prompts">
+                      <span className="quick-prompts-label">Quick Ideas:</span>
+                      <button
+                        type="button"
+                        className="quick-prompt-btn"
+                        onClick={() => {
+                          const p = "Generate an ATS-optimized summary from my skills, target role, and experience";
+                          setAiInstruction(p);
+                          handleGenerateAiSummary(p);
+                        }}
+                      >
+                        ✨ From My Info
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-prompt-btn"
+                        onClick={() => {
+                          const p = "Make it more impactful with quantifiable achievements and strong action verbs";
+                          setAiInstruction(p);
+                          handleGenerateAiSummary(p);
+                        }}
+                      >
+                        ⚡ High Impact
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-prompt-btn"
+                        onClick={() => {
+                          const p = "Write for an enthusiastic entry-level / fresher profile with strong fundamentals";
+                          setAiInstruction(p);
+                          handleGenerateAiSummary(p);
+                        }}
+                      >
+                        🎯 Entry-Level
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-prompt-btn"
+                        onClick={() => {
+                          const p = "Executive / Senior technical lead tone with strategic problem solving";
+                          setAiInstruction(p);
+                          handleGenerateAiSummary(p);
+                        }}
+                      >
+                        🏢 Senior Tone
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-prompt-btn"
+                        onClick={() => {
+                          const p = "Keep it concise (2 tight sentences)";
+                          setAiInstruction(p);
+                          handleGenerateAiSummary(p);
+                        }}
+                      >
+                        ✂️ Short (2 Sentences)
+                      </button>
+                    </div>
+
+                    {/* AI Agent Output Proposal */}
+                    {isAiGenerating && (
+                      <div className="ai-generating-loader">
+                        <div className="pulse-dot"></div>
+                        <span>AI Agent is drafting your ATS-optimized summary...</span>
+                      </div>
+                    )}
+
+                    {aiError && (
+                      <div className="ai-error-banner">
+                        <span>{aiError}</span>
+                      </div>
+                    )}
+
+                    {aiProposal && !isAiGenerating && (
+                      <div className="ai-proposal-card animate-fade-in">
+                        <div className="ai-proposal-header">
+                          <span className="ai-proposal-title">Agent Proposal:</span>
+                          <div className="ai-proposal-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary ai-action-btn"
+                              onClick={handleApplyAiSummary}
+                            >
+                              {appliedSummary ? <Check size={14} color="var(--accent-emerald)" /> : <Check size={14} />}
+                              <span>{appliedSummary ? 'Applied!' : 'Apply to Resume'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-ghost ai-action-btn"
+                              onClick={handleAppendAiSummary}
+                              title="Append to existing summary"
+                            >
+                              <Plus size={14} />
+                              <span>Append</span>
+                            </button>
+                          </div>
+                        </div>
+                        <p className="ai-proposal-text">{aiProposal}</p>
+
+                        {/* Refinement Suggestions */}
+                        {aiRefinements.length > 0 && (
+                          <div className="ai-refinements-row">
+                            <span className="refinements-label">Refine with Agent:</span>
+                            {aiRefinements.map((refine, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                className="refinement-chip"
+                                onClick={() => {
+                                  setAiInstruction(refine);
+                                  handleGenerateAiSummary(refine);
+                                }}
+                              >
+                                {refine}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual Textarea */}
+                  <div className="auth-field" style={{ marginTop: 20 }}>
+                    <div className="textarea-label-row">
+                      <label className="auth-label">Your Current Summary</label>
+                      <span className="textarea-metrics-badge">
+                        {resume.summary.trim()
+                          ? `${resume.summary.trim().split(/\s+/).length} words · ${resume.summary.split(/[.!?]+/).filter(Boolean).length} sentences`
+                          : 'Empty (2-4 sentences recommended)'}
+                      </span>
+                    </div>
                     <textarea
                       className="auth-input"
                       rows={5}
-                      placeholder="Results-driven Software Engineer with 4+ years of experience engineering high-performance web applications, scalable REST APIs, and microservices..."
+                      placeholder="Your professional summary will appear here. You can type freely or use the AI Agent above to craft it automatically..."
                       value={resume.summary}
                       onChange={(e) => handleSummaryChange(e.target.value)}
                       style={{ resize: 'vertical' }}
