@@ -31,7 +31,6 @@ export default function ResumeBuilderModal({
   onAnalyzeResumeText,
   currentUser
 }) {
-  const [templateKey, setTemplateKey] = useState('blank');
   const [resume, setResume] = useState(() => {
     return JSON.parse(JSON.stringify(RESUME_TEMPLATES.blank));
   });
@@ -43,12 +42,6 @@ export default function ResumeBuilderModal({
   const previewRef = useRef(null);
 
   if (!isOpen) return null;
-
-  const handleSelectTemplate = (key) => {
-    setTemplateKey(key);
-    const tmpl = JSON.parse(JSON.stringify(RESUME_TEMPLATES[key]));
-    setResume(tmpl);
-  };
 
   // Personal Field Handlers
   const handlePersonalChange = (field, value) => {
@@ -397,21 +390,6 @@ export default function ResumeBuilderModal({
         </div>
 
         <div className="builder-header-right">
-          {/* Template Selector */}
-          <div className="builder-template-select-wrap">
-            <span className="builder-template-label">Template / Sample:</span>
-            <select
-              className="auth-input builder-select"
-              value={templateKey}
-              onChange={(e) => handleSelectTemplate(e.target.value)}
-            >
-              <option value="blank">Blank Slate (Start from scratch)</option>
-              <option value="fullstack">Sample: Full Stack Engineer</option>
-              <option value="datascientist">Sample: Data Scientist & ML</option>
-              <option value="fresher">Sample: Entry-Level / Fresher</option>
-            </select>
-          </div>
-
           <button
             type="button"
             className="modal-close-btn"
