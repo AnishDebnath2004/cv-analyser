@@ -31,16 +31,9 @@ export default function ResumeBuilderModal({
   onAnalyzeResumeText,
   currentUser
 }) {
-  const [templateKey, setTemplateKey] = useState('fullstack');
+  const [templateKey, setTemplateKey] = useState('blank');
   const [resume, setResume] = useState(() => {
-    const initial = JSON.parse(JSON.stringify(RESUME_TEMPLATES.fullstack));
-    if (currentUser?.full_name) {
-      initial.personal.fullName = currentUser.full_name;
-    }
-    if (currentUser?.email) {
-      initial.personal.email = currentUser.email;
-    }
-    return initial;
+    return JSON.parse(JSON.stringify(RESUME_TEMPLATES.blank));
   });
 
   const [activeMobileView, setActiveMobileView] = useState('editor'); // 'editor' | 'preview'
@@ -49,31 +42,11 @@ export default function ResumeBuilderModal({
   const [activeSection, setActiveSection] = useState('personal'); // 'personal' | 'summary' | 'skills' | 'experience' | 'education' | 'projects'
   const previewRef = useRef(null);
 
-  // Sync current user name and email if available
-  useEffect(() => {
-    if (currentUser) {
-      setResume((prev) => ({
-        ...prev,
-        personal: {
-          ...prev.personal,
-          fullName: prev.personal.fullName || currentUser.full_name || '',
-          email: prev.personal.email || currentUser.email || ''
-        }
-      }));
-    }
-  }, [currentUser]);
-
   if (!isOpen) return null;
 
   const handleSelectTemplate = (key) => {
     setTemplateKey(key);
     const tmpl = JSON.parse(JSON.stringify(RESUME_TEMPLATES[key]));
-    if (currentUser?.full_name && !tmpl.personal.fullName) {
-      tmpl.personal.fullName = currentUser.full_name;
-    }
-    if (currentUser?.email && !tmpl.personal.email) {
-      tmpl.personal.email = currentUser.email;
-    }
     setResume(tmpl);
   };
 
@@ -115,7 +88,7 @@ export default function ResumeBuilderModal({
       company: '',
       location: '',
       startDate: '',
-      endDate: 'Present',
+      endDate: '',
       bullets: ['']
     };
     setResume((prev) => ({
@@ -300,6 +273,10 @@ export default function ResumeBuilderModal({
   // Direct PDF Download via html2pdf.js
   const handleDownloadPdf = async () => {
     if (!previewRef.current) return;
+    if (!resume.personal.fullName?.trim() && !resume.personal.email?.trim()) {
+      alert('Please fill in your full name and contact details before downloading your PDF resume.');
+      return;
+    }
     setIsGeneratingPdf(true);
 
     try {
@@ -422,16 +399,16 @@ export default function ResumeBuilderModal({
         <div className="builder-header-right">
           {/* Template Selector */}
           <div className="builder-template-select-wrap">
-            <span className="builder-template-label">Starter Template:</span>
+            <span className="builder-template-label">Template / Sample:</span>
             <select
               className="auth-input builder-select"
               value={templateKey}
               onChange={(e) => handleSelectTemplate(e.target.value)}
             >
-              <option value="fullstack">Full Stack Engineer</option>
-              <option value="datascientist">Data Scientist & ML</option>
-              <option value="fresher">Entry-Level / Fresher</option>
-              <option value="blank">Blank Slate (Clear)</option>
+              <option value="blank">Blank Slate (Start from scratch)</option>
+              <option value="fullstack">Sample: Full Stack Engineer</option>
+              <option value="datascientist">Sample: Data Scientist & ML</option>
+              <option value="fresher">Sample: Entry-Level / Fresher</option>
             </select>
           </div>
 
@@ -1032,8 +1009,8 @@ export default function ResumeBuilderModal({
               <div className="printable-ats-resume" ref={previewRef}>
                 {/* Header: Name and Title */}
                 <div className="ats-header">
-                  <h1 className="ats-name">
-                    {resume.personal.fullName || 'YOUR FULL NAME'}
+                  <h1 className="ats-name" style={{ color: resume.personal.fullName?.trim() ? '#111827' : '#9ca3af' }}>
+                    {resume.personal.fullName?.trim() || 'YOUR FULL NAME'}
                   </h1>
                   {resume.personal.title && (
                     <div className="ats-title">{resume.personal.title}</div>
@@ -1044,6 +1021,20 @@ export default function ResumeBuilderModal({
                     </div>
                   )}
                 </div>
+
+                {contactItems.length === 0 &&
+                  !resume.personal.title &&
+                  !resume.summary?.trim() &&
+                  !resume.skills.languages?.trim() &&
+                  !resume.skills.frameworks?.trim() &&
+                  !resume.skills.cloudTools?.trim() &&
+                  resume.experience.filter((e) => e.role || e.company).length === 0 &&
+                  resume.education.filter((e) => e.degree || e.institution).length === 0 &&
+                  resume.projects.filter((p) => p.name).length === 0 && (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 20px', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                      Start entering your information in the editor on the left to see your live ATS-friendly resume formatted here in real time.
+                    </div>
+                  )}
 
                 {/* Professional Summary */}
                 {resume.summary?.trim() && (
