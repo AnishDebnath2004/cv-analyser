@@ -10,8 +10,7 @@ import {
   Sparkles,
   CheckCircle2,
   AlertCircle,
-  ShieldCheck,
-  LogOut
+  ShieldCheck
 } from 'lucide-react';
 
 export default function AuthSection({
@@ -88,36 +87,7 @@ export default function AuthSection({
   };
 
   if (currentUser) {
-    return (
-      <div className="glass-panel auth-section-container authenticated-card animate-fade-in">
-        <div className="auth-user-info-row">
-          <div className="auth-avatar-circle">
-            <User size={22} />
-          </div>
-          <div className="auth-user-text">
-            <div className="auth-user-name">
-              <span>{currentUser.full_name}</span>
-              <span className="badge badge-emerald">
-                <CheckCircle2 size={12} />
-                <span>Signed In</span>
-              </span>
-            </div>
-            <div className="auth-user-email">{currentUser.email}</div>
-            <p className="auth-user-hint">
-              Your resume scans and O*NET career recommendations are linked to your profile.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn-secondary auth-logout-btn"
-            onClick={onLogout}
-          >
-            <LogOut size={15} />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
