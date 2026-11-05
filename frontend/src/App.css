@@ -1876,6 +1876,58 @@
   }
 }
 
+/* Standalone Resume Builder Page (Separate Window/Tab) */
+.resume-builder-standalone-page {
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--bg-dark);
+  background-image: 
+    radial-gradient(ellipse at 15% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.standalone-builder-view {
+  width: 100% !important;
+  max-width: 1600px !important;
+  height: calc(100vh - 32px) !important;
+  max-height: calc(100vh - 32px) !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 35px rgba(99, 102, 241, 0.15) !important;
+}
+
+.builder-download-pdf-btn {
+  transition: all var(--transition-fast);
+}
+
+.builder-download-pdf-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45) !important;
+}
+
+@media (max-width: 768px) {
+  .resume-builder-standalone-page {
+    padding: 0;
+  }
+  .standalone-builder-view {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .builder-footer-left {
+    flex-wrap: wrap;
+  }
+}
+
 /* Print Stylesheet: prints ONLY the pure ATS Resume Sheet */
 @media print {
   body * {

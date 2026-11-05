@@ -42,6 +42,37 @@ export default function App() {
   // ATS Resume Builder modal state
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
 
+  // Routing state for dedicated standalone ATS Builder window ('home' | 'builder')
+  const [currentRoute, setCurrentRoute] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/builder')) {
+      return 'builder';
+    }
+    return 'home';
+  });
+
+  // Track popstate for routing
+  useEffect(() => {
+    const handlePopState = () => {
+      if (window.location.pathname.startsWith('/builder')) {
+        setCurrentRoute('builder');
+      } else {
+        setCurrentRoute('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleOpenBuilder = () => {
+    // Open ATS Resume Builder in a separate window/tab
+    const newWindow = window.open('/builder', '_blank');
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+      // Pop-up blocker fallback: switch route in current window
+      window.history.pushState({}, '', '/builder');
+      setCurrentRoute('builder');
+    }
+  };
+
   // Apply theme and listen for OS system theme changes
   useEffect(() => {
     const applyTheme = (pref) => {
@@ -273,9 +304,51 @@ export default function App() {
     }
   };
 
+  // Cross-window message listener & pending resume analyze handler
+  useEffect(() => {
+    const handleCrossWindowMessage = (event) => {
+      if (event.data && event.data.type === 'ANALYZE_RESUME' && event.data.text) {
+        handleAnalyzeText(event.data.text);
+      }
+    };
+    window.addEventListener('message', handleCrossWindowMessage);
+
+    // Check if user redirected from builder with pending resume text
+    const pendingText = localStorage.getItem('pathfinder_pending_analyze');
+    if (pendingText) {
+      localStorage.removeItem('pathfinder_pending_analyze');
+      if (window.location.search.includes('analyze=1')) {
+        window.history.replaceState({}, '', '/');
+      }
+      handleAnalyzeText(pendingText);
+    }
+
+    return () => window.removeEventListener('message', handleCrossWindowMessage);
+  }, []);
+
   const handleReset = () => {
     setAnalysisResult(null);
   };
+
+  // If in dedicated Standalone Builder window/tab
+  if (currentRoute === 'builder') {
+    return (
+      <ResumeBuilderModal
+        isOpen={true}
+        isStandalone={true}
+        onClose={() => {
+          if (window.opener && !window.opener.closed) {
+            window.close();
+          } else {
+            window.history.pushState({}, '', '/');
+            setCurrentRoute('home');
+          }
+        }}
+        onAnalyzeResumeText={handleAnalyzeText}
+        currentUser={currentUser}
+      />
+    );
+  }
 
   return (
     <div className="app-container">
@@ -285,7 +358,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={openAuthModal}
         onOpenSettings={openSettings}
-        onOpenBuilder={() => setBuilderModalOpen(true)}
+        onOpenBuilder={handleOpenBuilder}
         onLogout={handleLogout}
       />
 
@@ -294,7 +367,7 @@ export default function App() {
           <UploadSection
             onAnalyzeFile={handleAnalyzeFile}
             onAnalyzeText={handleAnalyzeText}
-            onOpenBuilder={() => setBuilderModalOpen(true)}
+            onOpenBuilder={handleOpenBuilder}
             isLoading={isLoading}
             loadingStep={loadingStep}
             currentUser={currentUser}

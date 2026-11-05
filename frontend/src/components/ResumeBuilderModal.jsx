@@ -18,12 +18,15 @@ import {
   FolderGit2,
   AlignLeft,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Compass,
+  Loader2
 } from 'lucide-react';
 import { RESUME_TEMPLATES, formatResumeAsText } from '../utils/resumeTemplates';
 
 export default function ResumeBuilderModal({
-  isOpen,
+  isOpen = true,
+  isStandalone = false,
   onClose,
   onAnalyzeResumeText,
   currentUser
@@ -42,6 +45,7 @@ export default function ResumeBuilderModal({
 
   const [activeMobileView, setActiveMobileView] = useState('editor'); // 'editor' | 'preview'
   const [copied, setCopied] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [activeSection, setActiveSection] = useState('personal'); // 'personal' | 'summary' | 'skills' | 'experience' | 'education' | 'projects'
   const previewRef = useRef(null);
 
@@ -269,9 +273,57 @@ export default function ResumeBuilderModal({
       alert('Please fill in your name and core details before analyzing.');
       return;
     }
-    onClose();
+
+    if (isStandalone) {
+      // Standalone window: save text to localStorage and notify parent window or redirect
+      localStorage.setItem('pathfinder_pending_analyze', formattedText);
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage({ type: 'ANALYZE_RESUME', text: formattedText }, '*');
+          window.opener.focus();
+          window.close();
+          return;
+        } catch (e) {
+          console.warn('postMessage to opener failed:', e);
+        }
+      }
+      window.location.href = '/?analyze=1';
+      return;
+    }
+
+    if (onClose) onClose();
     if (onAnalyzeResumeText) {
       onAnalyzeResumeText(formattedText);
+    }
+  };
+
+  // Direct PDF Download via html2pdf.js
+  const handleDownloadPdf = async () => {
+    if (!previewRef.current) return;
+    setIsGeneratingPdf(true);
+
+    try {
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+      const element = previewRef.current;
+      const cleanName = (resume.personal.fullName || 'Candidate')
+        .replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanName}_ATS_Resume.pdf`;
+
+      const options = {
+        margin: [8, 8, 8, 8],
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().from(element).set(options).save();
+    } catch (err) {
+      console.error('html2pdf generation error, falling back to window.print():', err);
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -318,55 +370,91 @@ export default function ResumeBuilderModal({
     resume.personal.portfolio
   ].filter(Boolean);
 
-  return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 120 }}>
-      <div
-        className="glass-panel modal-card resume-builder-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="builder-header">
-          <div className="builder-header-left">
-            <div className="builder-icon-box">
-              <FileText size={20} />
-            </div>
-            <div>
-              <div className="builder-title-row">
-                <h3 className="builder-title">ATS-Friendly Resume Builder</h3>
-                <span className="badge badge-accent">O*NET Standard Single-Column</span>
-              </div>
-              <p className="builder-subtitle">
-                Create a high-scoring resume optimized for Applicant Tracking Systems & PathFinder AI.
-              </p>
-            </div>
-          </div>
-
-          <div className="builder-header-right">
-            {/* Template Selector */}
-            <div className="builder-template-select-wrap">
-              <span className="builder-template-label">Starter Template:</span>
-              <select
-                className="auth-input builder-select"
-                value={templateKey}
-                onChange={(e) => handleSelectTemplate(e.target.value)}
-              >
-                <option value="fullstack">Full Stack Engineer</option>
-                <option value="datascientist">Data Scientist & ML</option>
-                <option value="fresher">Entry-Level / Fresher</option>
-                <option value="blank">Blank Slate (Clear)</option>
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="modal-close-btn"
-              onClick={onClose}
-              title="Close Builder"
+  const modalContent = (
+    <div
+      className={`glass-panel modal-card resume-builder-modal ${isStandalone ? 'standalone-builder-view' : ''}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Modal Header */}
+      <div className="builder-header">
+        <div className="builder-header-left">
+          {isStandalone && (
+            <div
+              className="standalone-brand"
+              onClick={() => {
+                if (window.opener && !window.opener.closed) {
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              }}
+              style={{
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginRight: '14px',
+                paddingRight: '14px',
+                borderRight: '1px solid rgba(255, 255, 255, 0.12)'
+              }}
+              title="Return to PathFinder AI"
             >
-              <X size={18} />
-            </button>
+              <Compass size={22} color="var(--accent-cyan)" />
+              <span style={{ fontWeight: 800, fontSize: '1.02rem', letterSpacing: '-0.02em', color: '#ffffff' }}>
+                PathFinder <span style={{ color: 'var(--accent-cyan)' }}>AI</span>
+              </span>
+            </div>
+          )}
+          <div className="builder-icon-box">
+            <FileText size={20} />
+          </div>
+          <div>
+            <div className="builder-title-row">
+              <h3 className="builder-title">ATS-Friendly Resume Builder</h3>
+              <span className="badge badge-accent">O*NET Standard Single-Column</span>
+            </div>
+            <p className="builder-subtitle">
+              Create a high-scoring resume optimized for Applicant Tracking Systems & PathFinder AI.
+            </p>
           </div>
         </div>
+
+        <div className="builder-header-right">
+          {/* Template Selector */}
+          <div className="builder-template-select-wrap">
+            <span className="builder-template-label">Starter Template:</span>
+            <select
+              className="auth-input builder-select"
+              value={templateKey}
+              onChange={(e) => handleSelectTemplate(e.target.value)}
+            >
+              <option value="fullstack">Full Stack Engineer</option>
+              <option value="datascientist">Data Scientist & ML</option>
+              <option value="fresher">Entry-Level / Fresher</option>
+              <option value="blank">Blank Slate (Clear)</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="modal-close-btn"
+            onClick={() => {
+              if (isStandalone) {
+                if (window.opener && !window.opener.closed) {
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              } else if (onClose) {
+                onClose();
+              }
+            }}
+            title={isStandalone ? "Close Tab / Return Home" : "Close Builder"}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
 
         {/* Mobile View Toggle */}
         <div className="builder-mobile-tabs">
@@ -1085,12 +1173,32 @@ export default function ResumeBuilderModal({
           <div className="builder-footer-left">
             <button
               type="button"
-              className="btn-ghost"
-              onClick={handleCopyText}
-              title="Copy clean plain text"
+              className="btn-primary builder-download-pdf-btn"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              title="Download ATS PDF resume directly"
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 600,
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
             >
-              {copied ? <Check size={15} color="var(--accent-emerald)" /> : <Copy size={15} />}
-              <span>{copied ? 'Copied Text!' : 'Copy Text'}</span>
+              {isGeneratingPdf ? <Loader2 size={16} className="spin-slow" /> : <Download size={16} />}
+              <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handlePrint}
+              title="Save or Print as PDF via system dialog"
+            >
+              <Printer size={15} />
+              <span>Print</span>
             </button>
             <button
               type="button"
@@ -1098,17 +1206,17 @@ export default function ResumeBuilderModal({
               onClick={handleDownloadTxt}
               title="Download ATS plain-text resume"
             >
-              <Download size={15} />
+              <FileText size={15} />
               <span>Download .TXT</span>
             </button>
             <button
               type="button"
-              className="btn-secondary"
-              onClick={handlePrint}
-              title="Save or Print as PDF"
+              className="btn-ghost"
+              onClick={handleCopyText}
+              title="Copy clean plain text"
             >
-              <Printer size={15} />
-              <span>Save / Print PDF</span>
+              {copied ? <Check size={15} color="var(--accent-emerald)" /> : <Copy size={15} />}
+              <span>{copied ? 'Copied Text!' : 'Copy Text'}</span>
             </button>
           </div>
 
@@ -1126,6 +1234,19 @@ export default function ResumeBuilderModal({
           </div>
         </div>
       </div>
+  );
+
+  if (isStandalone) {
+    return (
+      <div className="resume-builder-standalone-page animate-fade-in">
+        {modalContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 120 }}>
+      {modalContent}
     </div>
   );
 }
