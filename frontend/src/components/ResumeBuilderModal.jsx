@@ -24,6 +24,13 @@ import {
 } from 'lucide-react';
 import { RESUME_TEMPLATES, formatResumeAsText } from '../utils/resumeTemplates';
 import { COUNTRY_CALLING_CODES } from '../utils/countryCodes';
+import {
+  PROGRAMMING_LANGUAGES_DATA,
+  FRAMEWORKS_LIBRARIES_DATA,
+  CLOUD_DATABASES_TOOLS_DATA,
+  DEGREE_OPTIONS_DATA
+} from '../utils/searchAsYouTypeData';
+import SearchAsYouTypeInput from './SearchAsYouTypeInput';
 
 export default function ResumeBuilderModal({
   isOpen = true,
@@ -675,34 +682,34 @@ export default function ResumeBuilderModal({
 
                   <div className="auth-field" style={{ marginBottom: 16 }}>
                     <label className="auth-label">Programming Languages (Comma-separated)</label>
-                    <input
-                      type="text"
-                      className="auth-input"
+                    <SearchAsYouTypeInput
+                      isMulti={true}
                       placeholder="e.g. Python, TypeScript, JavaScript, SQL, Go"
                       value={resume.skills.languages}
-                      onChange={(e) => handleSkillChange('languages', e.target.value)}
+                      suggestions={PROGRAMMING_LANGUAGES_DATA}
+                      onChange={(val) => handleSkillChange('languages', val)}
                     />
                   </div>
 
                   <div className="auth-field" style={{ marginBottom: 16 }}>
                     <label className="auth-label">Frameworks, Libraries & Runtime (Comma-separated)</label>
-                    <input
-                      type="text"
-                      className="auth-input"
+                    <SearchAsYouTypeInput
+                      isMulti={true}
                       placeholder="e.g. React, Next.js, FastAPI, Node.js, Express, Tailwind CSS"
                       value={resume.skills.frameworks}
-                      onChange={(e) => handleSkillChange('frameworks', e.target.value)}
+                      suggestions={FRAMEWORKS_LIBRARIES_DATA}
+                      onChange={(val) => handleSkillChange('frameworks', val)}
                     />
                   </div>
 
                   <div className="auth-field">
                     <label className="auth-label">Cloud, Databases & Developer Tools (Comma-separated)</label>
-                    <input
-                      type="text"
-                      className="auth-input"
+                    <SearchAsYouTypeInput
+                      isMulti={true}
                       placeholder="e.g. AWS (S3, Lambda, EC2), Docker, Kubernetes, PostgreSQL, Redis, Git, Linux"
                       value={resume.skills.cloudTools}
-                      onChange={(e) => handleSkillChange('cloudTools', e.target.value)}
+                      suggestions={CLOUD_DATABASES_TOOLS_DATA}
+                      onChange={(val) => handleSkillChange('cloudTools', val)}
                     />
                   </div>
                 </div>
@@ -879,12 +886,12 @@ export default function ResumeBuilderModal({
                       <div className="form-grid-2">
                         <div className="auth-field">
                           <label className="auth-label">Degree & Major *</label>
-                          <input
-                            type="text"
-                            className="auth-input"
-                            placeholder="B.S. in Computer Science"
+                          <SearchAsYouTypeInput
+                            isMulti={false}
+                            placeholder="e.g. B.S. in Computer Science or B.Tech"
                             value={edu.degree}
-                            onChange={(e) => handleUpdateEducation(edu.id, 'degree', e.target.value)}
+                            suggestions={DEGREE_OPTIONS_DATA}
+                            onChange={(val) => handleUpdateEducation(edu.id, 'degree', val)}
                           />
                         </div>
                         <div className="auth-field">

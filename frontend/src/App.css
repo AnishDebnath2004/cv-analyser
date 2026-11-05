@@ -1594,6 +1594,120 @@
   padding: 10px 14px !important;
 }
 
+/* Search-as-you-type (Autocomplete) Component */
+.sayt-container {
+  position: relative;
+  width: 100%;
+}
+
+.sayt-input {
+  width: 100%;
+}
+
+.sayt-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.2);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  max-height: 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sayt-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sayt-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  max-height: 220px;
+}
+
+.sayt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sayt-item:hover,
+.sayt-item.active {
+  background: rgba(99, 102, 241, 0.18);
+  color: #ffffff;
+}
+
+.sayt-item-text {
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sayt-match-highlight {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sayt-action-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--accent-emerald);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.sayt-item.active .sayt-action-hint,
+.sayt-item:hover .sayt-action-hint {
+  opacity: 1;
+}
+
+[data-theme='light'] .sayt-dropdown {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .sayt-item:hover,
+[data-theme='light'] .sayt-item.active {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary);
+}
+
+[data-theme='light'] .sayt-match-highlight {
+  color: var(--primary);
+}
+
 .builder-card-item {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
