@@ -62,12 +62,11 @@ export default function AnalysisDashboard({
           </div>
 
           <div className="candidate-meta-badges">
-            <span className="badge badge-cyan" title="Occupational data reference source">
-              <Zap size={12} />
-              <span>{data_source}</span>
+            <span className="badge badge-primary">
+              <span>{primary_domain || 'Technology & Engineering'}</span>
             </span>
-            <span className="badge badge-emerald" title="AI model evaluating profile">
-              <span>{ai_model_used}</span>
+            <span className="badge badge-cyan" title="Occupational taxonomy benchmark">
+              <span>{data_source}</span>
             </span>
           </div>
         </div>
@@ -87,7 +86,7 @@ export default function AnalysisDashboard({
           </div>
         )}
 
-        {/* AI Synthesis Summary */}
+        {/* Executive Summary & Profile Overview */}
         <div className="candidate-summary-box">
           {candidate_summary}
         </div>
@@ -132,7 +131,7 @@ export default function AnalysisDashboard({
           onClick={() => setActiveTab('chat')}
         >
           <MessageSquare size={16} />
-          <span>AI Career Counselor</span>
+          <span>Career Advisor</span>
         </button>
       </div>
 

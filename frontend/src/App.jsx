@@ -170,15 +170,15 @@ export default function App() {
   };
 
   const simulateStepProgress = () => {
-    setLoadingStep('Ingesting document and extracting technical competencies...');
+    setLoadingStep('Reading through your background and experience...');
     const t1 = setTimeout(() => {
-      setLoadingStep('Querying O*NET Web Services & SOC Occupational database...');
+      setLoadingStep('Comparing skills against occupational benchmarks...');
     }, 900);
     const t2 = setTimeout(() => {
-      setLoadingStep('Calculating multi-dimensional skill and experience fit scores...');
+      setLoadingStep('Evaluating role compatibility and career trajectories...');
     }, 1800);
     const t3 = setTimeout(() => {
-      setLoadingStep('Performing deep gap analysis and career advisory synthesis...');
+      setLoadingStep('Preparing your personalized career insights...');
     }, 2700);
 
     return () => {
@@ -200,7 +200,7 @@ export default function App() {
     }
 
     setIsLoading(true);
-    setLoadingStep('Parsing document content...');
+    setLoadingStep('Reading document content...');
 
     // 1. Try client-side text extraction first
     // This transforms a 186KB - 4MB PDF/DOCX file into a 2KB - 8KB pure text payload,

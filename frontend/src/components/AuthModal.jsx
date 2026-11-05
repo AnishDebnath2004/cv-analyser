@@ -286,7 +286,7 @@ export default function AuthModal({
               ? 'Recover Your Password'
               : mode === 'reset'
               ? 'Set New Password'
-              : 'Welcome to PathFinder AI'}
+              : 'Welcome to PathFinder'}
           </h2>
           <p className="auth-subtitle">
             {mode === 'signup'

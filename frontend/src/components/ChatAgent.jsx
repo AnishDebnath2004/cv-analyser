@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, HelpCircle } from 'lucide-react';
+import { Send, Compass, User, HelpCircle } from 'lucide-react';
 
 export default function ChatAgent({ analysisResult }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `Hello ${analysisResult?.profile?.full_name || 'there'}! I'm your O*NET Career AI Agent. I've analyzed your CV against the official Occupational Information Network database. Your top match is **${analysisResult?.suitable_job_profiles?.[0]?.title}** with an overall fit score of **${analysisResult?.suitable_job_profiles?.[0]?.match_score}%**. What career questions can I answer for you today?`,
+      content: `Hello ${analysisResult?.profile?.full_name || 'there'}! Welcome to your career briefing. Based on your background, your strongest role alignment is **${analysisResult?.suitable_job_profiles?.[0]?.title}** (${analysisResult?.suitable_job_profiles?.[0]?.match_score}% compatibility). Whether you'd like advice on interview talking points, key skills to develop next, or tuning your experience for specific positions, feel free to ask anytime.`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -71,18 +71,17 @@ export default function ChatAgent({ analysisResult }) {
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="brand-icon-wrapper" style={{ width: 32, height: 32, borderRadius: 8 }}>
-            <Bot size={18} />
+            <Compass size={18} />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>AI Career Strategist Agent</div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Career Advisor</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Grounding advice on O*NET SOC: {analysisResult?.suitable_job_profiles?.[0]?.soc_code}
+              Grounded in industry occupational standards (SOC: {analysisResult?.suitable_job_profiles?.[0]?.soc_code})
             </div>
           </div>
         </div>
         <div className="badge badge-primary">
-          <Sparkles size={12} />
-          <span>Interactive Counselor</span>
+          <span>Career Advisory</span>
         </div>
       </div>
 
@@ -93,8 +92,8 @@ export default function ChatAgent({ analysisResult }) {
             className={`message-bubble ${m.role === 'user' ? 'message-user' : 'message-assistant'}`}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.75rem', opacity: 0.8 }}>
-              {m.role === 'user' ? <User size={13} /> : <Bot size={13} />}
-              <span>{m.role === 'user' ? 'You' : 'PathFinder Career Agent'}</span>
+              {m.role === 'user' ? <User size={13} /> : <Compass size={13} />}
+              <span>{m.role === 'user' ? 'You' : 'Career Advisor'}</span>
             </div>
             <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
           </div>
@@ -104,7 +103,7 @@ export default function ChatAgent({ analysisResult }) {
           <div className="message-bubble message-assistant">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               <div className="radar-spinner" style={{ width: 16, height: 16, borderWidth: 2, margin: 0 }}></div>
-              <span>Agent is reviewing your CV and formulating insights...</span>
+              <span>Advisor is reviewing and typing...</span>
             </div>
           </div>
         )}

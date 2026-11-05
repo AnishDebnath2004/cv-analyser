@@ -204,7 +204,7 @@ export default function SettingsModal({
                 Interface Theme
               </h3>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                Choose how PathFinder AI is displayed on your device.
+                Choose how PathFinder is displayed on your device.
               </p>
             </div>
 

@@ -257,7 +257,7 @@ export const RESUME_TEMPLATES = {
 
 /**
  * Format a structured resume model into clean, ATS-compliant plain text.
- * Strictly adheres to standard section headers that ATS scanners (and PathFinder AI) parse seamlessly.
+ * Strictly adheres to standard section headers that ATS scanners (and PathFinder) parse seamlessly.
  */
 export function formatResumeAsText(resume) {
   let text = '';

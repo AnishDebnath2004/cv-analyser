@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-  Sparkles,
   Compass,
   LogIn,
   UserPlus,
   LogOut,
   User,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 
 export default function Navbar({
@@ -26,17 +26,17 @@ export default function Navbar({
         </div>
         <div>
           <div className="brand-title">
-            Path<span className="gradient-text-accent">Finder</span> <span style={{ fontSize: '0.9rem', color: 'var(--accent-cyan)' }}>AI</span>
+            Path<span className="gradient-text-accent">Finder</span>
           </div>
-          <div className="brand-subtitle">O*NET Career Intelligence Agent</div>
+          <div className="brand-subtitle">Career Pathways & Skills Benchmark</div>
         </div>
       </div>
 
       <div className="nav-actions">
         {hasResult && (
           <button className="btn-secondary" onClick={onReset}>
-            <Sparkles size={16} />
-            <span>Analyze Another CV</span>
+            <FileText size={15} />
+            <span>Review Another Resume</span>
           </button>
         )}
 

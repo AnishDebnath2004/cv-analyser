@@ -8,7 +8,6 @@ import {
   Check,
   Plus,
   Trash2,
-  Wand2,
   Printer,
   ChevronDown,
   User,
@@ -21,7 +20,7 @@ import {
   RotateCcw,
   Compass,
   Loader2,
-  Bot
+  Edit3
 } from 'lucide-react';
 import { RESUME_TEMPLATES, formatResumeAsText } from '../utils/resumeTemplates';
 import { COUNTRY_CALLING_CODES } from '../utils/countryCodes';
@@ -116,7 +115,7 @@ export default function ResumeBuilderModal({
       });
 
       if (!res.ok) {
-        throw new Error(`AI Agent service returned status ${res.status}`);
+        throw new Error(`Summary assistant returned status ${res.status}`);
       }
 
       const data = await res.json();
@@ -125,7 +124,7 @@ export default function ResumeBuilderModal({
         setAiRefinements(data.suggested_refinements || []);
       }
     } catch (err) {
-      console.error('Summary AI Agent error:', err);
+      console.error('Summary assistant error:', err);
       setAiError(err.message || 'Failed to generate summary');
     } finally {
       setIsAiGenerating(false);
@@ -359,7 +358,7 @@ export default function ResumeBuilderModal({
     }));
   };
 
-  // Action: Analyze with PathFinder AI
+  // Action: Benchmark with PathFinder
   const handleAnalyze = () => {
     const formattedText = formatResumeAsText(resume);
     if (!formattedText || formattedText.length < 40) {
@@ -494,11 +493,11 @@ export default function ResumeBuilderModal({
                 paddingRight: '14px',
                 borderRight: '1px solid rgba(255, 255, 255, 0.12)'
               }}
-              title="Return to PathFinder AI"
+              title="Return to PathFinder"
             >
-              <Compass size={22} color="var(--accent-cyan)" />
+              <Compass size={22} color="var(--primary)" />
               <span style={{ fontWeight: 800, fontSize: '1.02rem', letterSpacing: '-0.02em', color: '#ffffff' }}>
-                PathFinder <span style={{ color: 'var(--accent-cyan)' }}>AI</span>
+                PathFinder
               </span>
             </div>
           )}
@@ -507,11 +506,11 @@ export default function ResumeBuilderModal({
           </div>
           <div>
             <div className="builder-title-row">
-              <h3 className="builder-title">ATS-Friendly Resume Builder</h3>
-              <span className="badge badge-accent">O*NET Standard Single-Column</span>
+              <h3 className="builder-title">ATS Resume Builder</h3>
+              <span className="badge badge-accent">Clean Single-Column Format</span>
             </div>
             <p className="builder-subtitle">
-              Create a high-scoring resume optimized for Applicant Tracking Systems & PathFinder AI.
+              Draft a clear, structured resume designed to highlight your experience and pass recruiter screenings.
             </p>
           </div>
         </div>
@@ -732,18 +731,18 @@ export default function ResumeBuilderModal({
                     </div>
                   </div>
 
-                  {/* AI Summary Writer Agent Card */}
+                  {/* Summary Writing Assistant Card */}
                   <div className="summary-ai-agent-panel">
                     <div className="ai-agent-header">
                       <div className="ai-agent-badge">
-                        <Sparkles size={16} className="ai-sparkle-icon" />
-                        <span className="ai-agent-title">AI Summary Writer Agent</span>
+                        <Edit3 size={16} className="ai-sparkle-icon" />
+                        <span className="ai-agent-title">Summary Writing Assistant</span>
                       </div>
-                      <span className="ai-agent-chip">Gemini AI Assistant</span>
+                      <span className="ai-agent-chip">Writing Assistant</span>
                     </div>
 
                     <p className="ai-agent-desc">
-                      Instruct the AI agent to write your summary according to your wish (e.g. your target role, key strengths, experience level, or desired tone):
+                      Tell the assistant what you'd like to highlight — your target field, standout strengths, background level, or preferred tone:
                     </p>
 
                     {/* Custom instruction prompt input */}
@@ -751,7 +750,7 @@ export default function ResumeBuilderModal({
                       <input
                         type="text"
                         className="auth-input ai-agent-input"
-                        placeholder="e.g. Focus on my React and cloud skills, tone: confident & direct"
+                        placeholder="e.g. Highlight React and cloud architecture skills, tone: direct & confident"
                         value={aiInstruction}
                         onChange={(e) => setAiInstruction(e.target.value)}
                         onKeyDown={(e) => {
@@ -770,12 +769,12 @@ export default function ResumeBuilderModal({
                         {isAiGenerating ? (
                           <>
                             <Loader2 size={15} className="spin-slow" />
-                            <span>Writing...</span>
+                            <span>Drafting...</span>
                           </>
                         ) : (
                           <>
-                            <Sparkles size={15} />
-                            <span>Ask AI Agent</span>
+                            <Edit3 size={15} />
+                            <span>Draft Summary</span>
                           </>
                         )}
                       </button>
@@ -783,69 +782,69 @@ export default function ResumeBuilderModal({
 
                     {/* Quick suggestion pills */}
                     <div className="ai-quick-prompts">
-                      <span className="quick-prompts-label">Quick Ideas:</span>
+                      <span className="quick-prompts-label">Quick Angles:</span>
                       <button
                         type="button"
                         className="quick-prompt-btn"
                         onClick={() => {
-                          const p = "Generate an ATS-optimized summary from my skills, target role, and experience";
+                          const p = "Draft a professional ATS summary based on my skills, target role, and experience";
                           setAiInstruction(p);
                           handleGenerateAiSummary(p);
                         }}
                       >
-                        ✨ From My Info
+                        Based on My Info
                       </button>
                       <button
                         type="button"
                         className="quick-prompt-btn"
                         onClick={() => {
-                          const p = "Make it more impactful with quantifiable achievements and strong action verbs";
+                          const p = "Make it impact-focused with quantifiable achievements and strong action verbs";
                           setAiInstruction(p);
                           handleGenerateAiSummary(p);
                         }}
                       >
-                        ⚡ High Impact
+                        Impact & Results
                       </button>
                       <button
                         type="button"
                         className="quick-prompt-btn"
                         onClick={() => {
-                          const p = "Write for an enthusiastic entry-level / fresher profile with strong fundamentals";
+                          const p = "Write for an enthusiastic entry-level / fresher profile with strong technical fundamentals";
                           setAiInstruction(p);
                           handleGenerateAiSummary(p);
                         }}
                       >
-                        🎯 Entry-Level
+                        Entry-Level / Fresher
                       </button>
                       <button
                         type="button"
                         className="quick-prompt-btn"
                         onClick={() => {
-                          const p = "Executive / Senior technical lead tone with strategic problem solving";
+                          const p = "Executive and senior technical lead tone emphasizing strategic problem solving and mentoring";
                           setAiInstruction(p);
                           handleGenerateAiSummary(p);
                         }}
                       >
-                        🏢 Senior Tone
+                        Senior & Leadership
                       </button>
                       <button
                         type="button"
                         className="quick-prompt-btn"
                         onClick={() => {
-                          const p = "Keep it concise (2 tight sentences)";
+                          const p = "Keep it concise (2 tight, punchy sentences)";
                           setAiInstruction(p);
                           handleGenerateAiSummary(p);
                         }}
                       >
-                        ✂️ Short (2 Sentences)
+                        Concise (2 Sentences)
                       </button>
                     </div>
 
-                    {/* AI Agent Output Proposal */}
+                    {/* Output Proposal */}
                     {isAiGenerating && (
                       <div className="ai-generating-loader">
                         <div className="pulse-dot"></div>
-                        <span>AI Agent is drafting your ATS-optimized summary...</span>
+                        <span>Drafting your professional summary...</span>
                       </div>
                     )}
 
@@ -858,7 +857,7 @@ export default function ResumeBuilderModal({
                     {aiProposal && !isAiGenerating && (
                       <div className="ai-proposal-card animate-fade-in">
                         <div className="ai-proposal-header">
-                          <span className="ai-proposal-title">Agent Proposal:</span>
+                          <span className="ai-proposal-title">Suggested Draft:</span>
                           <div className="ai-proposal-actions">
                             <button
                               type="button"
@@ -866,7 +865,7 @@ export default function ResumeBuilderModal({
                               onClick={handleApplyAiSummary}
                             >
                               {appliedSummary ? <Check size={14} color="var(--accent-emerald)" /> : <Check size={14} />}
-                              <span>{appliedSummary ? 'Applied!' : 'Apply to Resume'}</span>
+                              <span>{appliedSummary ? 'Applied!' : 'Use This Draft'}</span>
                             </button>
                             <button
                               type="button"
@@ -884,7 +883,7 @@ export default function ResumeBuilderModal({
                         {/* Refinement Suggestions */}
                         {aiRefinements.length > 0 && (
                           <div className="ai-refinements-row">
-                            <span className="refinements-label">Refine with Agent:</span>
+                            <span className="refinements-label">Try a different angle:</span>
                             {aiRefinements.map((refine, idx) => (
                               <button
                                 key={idx}
@@ -917,7 +916,7 @@ export default function ResumeBuilderModal({
                     <textarea
                       className="auth-input"
                       rows={5}
-                      placeholder="Your professional summary will appear here. You can type freely or use the AI Agent above to craft it automatically..."
+                      placeholder="Write a brief overview of your background, key strengths, and career direction. You can draft freely or use the assistant above for ideas..."
                       value={resume.summary}
                       onChange={(e) => handleSummaryChange(e.target.value)}
                       style={{ resize: 'vertical' }}
@@ -1228,7 +1227,7 @@ export default function ResumeBuilderModal({
                           <input
                             type="text"
                             className="auth-input"
-                            placeholder="AI Career Intelligence Agent"
+                            placeholder="e.g. Distributed Analytics Platform"
                             value={proj.name}
                             onChange={(e) => handleUpdateProject(proj.id, 'name', e.target.value)}
                           />
@@ -1515,8 +1514,8 @@ export default function ResumeBuilderModal({
               onClick={handleAnalyze}
               style={{ padding: '10px 22px', gap: 8, fontSize: '0.92rem' }}
             >
-              <Sparkles size={16} />
-              <span>Analyze with PathFinder AI</span>
+              <Compass size={16} />
+              <span>Benchmark with PathFinder</span>
               <ArrowRight size={16} />
             </button>
           </div>

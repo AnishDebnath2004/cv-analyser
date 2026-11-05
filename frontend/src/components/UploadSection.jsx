@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, ArrowRight, Zap, FileCheck, Sparkles, AlertCircle, Wand2, FileText } from 'lucide-react';
+import { UploadCloud, ArrowRight, Compass, FileCheck, Layers, AlertCircle, FileText } from 'lucide-react';
 
 export default function UploadSection({
   onAnalyzeFile,
@@ -67,17 +67,17 @@ export default function UploadSection({
       <section className="hero-section">
         <div className="hero-badge">
           <span className="badge badge-primary">
-            <Zap size={13} />
-            <span>Standard Occupational Classification (SOC) AI Engine</span>
+            <Compass size={13} />
+            <span>O*NET Career Taxonomy & Occupational Standards</span>
           </span>
         </div>
         <h1 className="hero-title">
-          Discover Which Job Profile <br />
-          <span className="gradient-text">Matches Your Real Capabilities</span>
+          Find the Roles That Truly <br />
+          <span className="gradient-text">Match Your Experience</span>
         </h1>
         <p className="hero-description">
-          Upload your resume or paste text to activate our AI Career Agent. We scan your competencies, cross-reference 
-          against official O*NET occupational standards, and reveal your highest-fit roles, skill gaps, and salary trajectory.
+          Benchmark your resume against official occupational standards. Identify your strongest role alignments, 
+          understand key competency proficiencies, and explore strategic career growth paths.
         </p>
       </section>
 
@@ -88,7 +88,7 @@ export default function UploadSection({
             <div className="radar-spinner"></div>
             <div className="scanner-step">{loadingStep}</div>
             <div className="scanner-subtext">
-              Cross-referencing competencies against the O*NET Occupational Network...
+              Cross-referencing competencies against occupational benchmarks...
             </div>
           </div>
         ) : (
@@ -96,7 +96,7 @@ export default function UploadSection({
             <div className="upload-header-banner">
               <span className="upload-header-title">
                 <FileCheck size={18} style={{ color: 'var(--primary)' }} />
-                <span>Resume Analysis & Skill Ingestion</span>
+                <span>Resume Benchmark & Skills Alignment</span>
               </span>
               <span className="badge badge-primary">Max 4.5MB • PDF • DOCX • TXT</span>
             </div>
@@ -127,10 +127,10 @@ export default function UploadSection({
                 <UploadCloud size={32} />
               </div>
               <div className="dropzone-title">
-                Drag & Drop your resume here, or <span style={{ color: 'var(--primary)' }}>browse files</span>
+                Drop your resume here, or <span style={{ color: 'var(--primary)' }}>browse files</span>
               </div>
               <div className="dropzone-subtitle">
-                Supports PDF, DOCX, and TXT (Max 4.5MB). Instant parsing & zero data selling.
+                Supports PDF, DOCX, and TXT files up to 4.5MB. Analyzed securely in memory.
               </div>
               <button
                 type="button"
@@ -140,7 +140,7 @@ export default function UploadSection({
                   fileInputRef.current?.click();
                 }}
               >
-                <span>Select Resume File</span>
+                <span>Upload Resume</span>
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -148,8 +148,8 @@ export default function UploadSection({
             {/* Quick Test Samples */}
             <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={13} style={{ color: 'var(--accent-amber)' }} />
-                <span>Quick Test with Pre-configured Resumes:</span>
+                <Layers size={13} style={{ color: 'var(--text-secondary)' }} />
+                <span>Explore with sample candidate profiles:</span>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {sampleProfiles.map((sample, idx) => (
@@ -175,15 +175,15 @@ export default function UploadSection({
             <div className="builder-promo-banner" onClick={onOpenBuilder}>
               <div className="builder-promo-left">
                 <div className="builder-promo-icon">
-                  <Wand2 size={24} />
+                  <FileText size={22} />
                 </div>
                 <div className="builder-promo-text">
                   <div className="builder-promo-title">
-                    <span>Don't have a resume yet?</span>
-                    <span className="badge badge-accent">Free ATS Resume Builder</span>
+                    <span>Need a clean resume?</span>
+                    <span className="badge badge-accent">Single-Column ATS Format</span>
                   </div>
                   <div className="builder-promo-desc">
-                    Create a high-scoring, single-column resume formatted for ATS parsers and PathFinder AI in under 2 minutes.
+                    Draft a structured, recruiter-ready resume designed to highlight your core strengths and pass ATS filters.
                   </div>
                 </div>
               </div>
@@ -196,7 +196,7 @@ export default function UploadSection({
                 }}
               >
                 <FileText size={15} />
-                <span>Build ATS Resume</span>
+                <span>Open Resume Builder</span>
                 <ArrowRight size={15} />
               </button>
             </div>
