@@ -120,6 +120,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .gradient-text {
   background: linear-gradient(180deg, #ffffff 30%, #cbd5e1 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
@@ -127,6 +128,7 @@ h1, h2, h3, h4, h5, h6 {
 
 [data-theme="light"] .gradient-text {
   background: linear-gradient(180deg, #0f172a 30%, #334155 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
