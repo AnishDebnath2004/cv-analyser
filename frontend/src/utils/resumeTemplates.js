@@ -372,3 +372,4 @@ export function formatResumeAsText(resume) {
 
   return text.trim();
 }
+
