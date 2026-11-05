@@ -125,6 +125,6 @@ export async function extractTextFromFile(file) {
     }
   } catch {}
 
-  throw new Error('Unable to extract text from this document. Please copy and paste your resume text into the "Paste Resume Text" tab.');
+  throw new Error('Unable to extract readable text from this document. Please ensure the file is a text-based PDF, DOCX, or TXT file.');
 }
 

@@ -160,7 +160,7 @@ export default function App() {
     const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
     if (file.size > MAX_SIZE_BYTES) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      alert(`The selected file is ${sizeMB}MB, which exceeds Vercel's 4.5MB upload limit. Please compress the file or switch to 'Paste Text' to analyze instantly.`);
+      alert(`The selected file is ${sizeMB}MB, which exceeds the 4.5MB upload limit. Please compress the file to analyze.`);
       return;
     }
 
@@ -218,7 +218,7 @@ export default function App() {
       setAnalysisResult(data);
     } catch (err) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        alert('Upload interrupted (Failed to fetch). On serverless hosting, documents over 64KB can time out. Please use the "Paste Resume Text" tab to analyze your CV text instantly.');
+        alert('Network interrupted (Failed to fetch). Please check your internet connection and try again.');
       } else {
         alert('Error analyzing resume: ' + err.message);
       }

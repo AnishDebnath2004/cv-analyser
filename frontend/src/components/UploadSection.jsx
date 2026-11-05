@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, ArrowRight, Zap, FileCheck, FileText, Sparkles, AlertCircle } from 'lucide-react';
+import { UploadCloud, ArrowRight, Zap, FileCheck, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function UploadSection({
   onAnalyzeFile,
@@ -10,9 +10,7 @@ export default function UploadSection({
   onAuthSuccess,
   onLogout
 }) {
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'paste'
   const [dragOver, setDragOver] = useState(false);
-  const [pastedText, setPastedText] = useState('');
   const [fileError, setFileError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -24,7 +22,7 @@ export default function UploadSection({
 
     if (file.size > MAX_SIZE_BYTES) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      setFileError(`Selected file is ${sizeMB}MB. Maximum upload size is 4.5MB. Please compress the file or use 'Paste Text'.`);
+      setFileError(`Selected file is ${sizeMB}MB. Maximum upload size is 4.5MB. Please compress the file.`);
       return;
     }
 
@@ -44,18 +42,6 @@ export default function UploadSection({
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       validateAndUpload(file);
-    }
-  };
-
-  const handlePasteSubmit = (e) => {
-    e.preventDefault();
-    setFileError('');
-    if (!pastedText.trim()) {
-      setFileError('Please paste your resume content before analyzing.');
-      return;
-    }
-    if (onAnalyzeText) {
-      onAnalyzeText(pastedText.trim());
     }
   };
 
@@ -114,26 +100,6 @@ export default function UploadSection({
               <span className="badge badge-primary">Max 4.5MB • PDF • DOCX • TXT</span>
             </div>
 
-            {/* Ingestion Tabs */}
-            <div className="auth-tab-bar" style={{ maxWidth: 360, margin: '0 auto 20px' }}>
-              <button
-                type="button"
-                className={`auth-tab-btn ${activeTab === 'upload' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('upload'); setFileError(''); }}
-              >
-                <UploadCloud size={15} />
-                <span>Upload Document</span>
-              </button>
-              <button
-                type="button"
-                className={`auth-tab-btn ${activeTab === 'paste' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('paste'); setFileError(''); }}
-              >
-                <FileText size={15} />
-                <span>Paste Resume Text</span>
-              </button>
-            </div>
-
             {fileError && (
               <div className="auth-alert auth-alert-error" style={{ marginBottom: 16 }}>
                 <AlertCircle size={16} />
@@ -141,77 +107,42 @@ export default function UploadSection({
               </div>
             )}
 
-            {/* Tab 1: File Dropzone */}
-            {activeTab === 'upload' && (
-              <div
-                className={`dropzone ${dragOver ? 'dragover' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  accept=".pdf,.docx,.doc,.txt"
-                  onChange={handleFileChange}
-                />
-                <div className="dropzone-icon">
-                  <UploadCloud size={32} />
-                </div>
-                <div className="dropzone-title">
-                  Drag & Drop your resume here, or <span style={{ color: 'var(--primary)' }}>browse files</span>
-                </div>
-                <div className="dropzone-subtitle">
-                  Supports PDF, DOCX, and TXT (Max 4.5MB). Instant parsing & zero data selling.
-                </div>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  <span>Select Resume File</span>
-                  <ArrowRight size={16} />
-                </button>
+            {/* Resume File Dropzone */}
+            <div
+              className={`dropzone ${dragOver ? 'dragover' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept=".pdf,.docx,.doc,.txt"
+                onChange={handleFileChange}
+              />
+              <div className="dropzone-icon">
+                <UploadCloud size={32} />
               </div>
-            )}
-
-            {/* Tab 2: Paste Resume Text */}
-            {activeTab === 'paste' && (
-              <form onSubmit={handlePasteSubmit} style={{ marginTop: 8 }}>
-                <textarea
-                  className="auth-input"
-                  style={{
-                    width: '100%',
-                    minHeight: 180,
-                    padding: 14,
-                    fontSize: '0.88rem',
-                    fontFamily: 'inherit',
-                    lineHeight: 1.5,
-                    resize: 'vertical',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: 16
-                  }}
-                  placeholder="Paste your resume text, work experience, technical skills, or LinkedIn profile summary here..."
-                  value={pastedText}
-                  onChange={(e) => setPastedText(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', padding: '12px 20px' }}
-                  disabled={!pastedText.trim()}
-                >
-                  <span>Analyze Resume Text</span>
-                  <ArrowRight size={16} />
-                </button>
-              </form>
-            )}
+              <div className="dropzone-title">
+                Drag & Drop your resume here, or <span style={{ color: 'var(--primary)' }}>browse files</span>
+              </div>
+              <div className="dropzone-subtitle">
+                Supports PDF, DOCX, and TXT (Max 4.5MB). Instant parsing & zero data selling.
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                <span>Select Resume File</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
 
             {/* Quick Test Samples */}
             <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
