@@ -3,6 +3,7 @@ import {
   X, Mail, Lock, User, Eye, EyeOff, LogIn, UserPlus,
   AlertCircle, CheckCircle2, Sparkles, KeyRound, ShieldCheck, ArrowLeft
 } from 'lucide-react';
+import { safeFetchJson } from '../utils/apiClient';
 
 export default function AuthModal({
   isOpen,
@@ -59,19 +60,14 @@ export default function AuthModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const data = await safeFetchJson('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim(),
           password: password,
         }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Invalid email or password');
-      }
+      }, 'Invalid email or password');
 
       if (data.mfa_required && data.temp_token) {
         setTempMfaToken(data.temp_token);
@@ -112,7 +108,7 @@ export default function AuthModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/register', {
+      const data = await safeFetchJson('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,12 +116,7 @@ export default function AuthModal({
           email: email.trim(),
           password: password,
         }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Sign up failed');
-      }
+      }, 'Sign up failed');
 
       setSuccessMsg('Account registered in Supabase! You can now log in anytime with these credentials.');
       setTimeout(() => {
@@ -150,19 +141,14 @@ export default function AuthModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/mfa/verify-login', {
+      const data = await safeFetchJson('/api/auth/mfa/verify-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           temp_token: tempMfaToken,
           code: mfaCode.trim()
         })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Invalid verification code');
-      }
+      }, 'Invalid verification code');
 
       setSuccessMsg(`Two-factor verified! Welcome back, ${data.user.full_name}!`);
       setTimeout(() => {
@@ -188,16 +174,11 @@ export default function AuthModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const data = await safeFetchJson('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to request password reset code');
-      }
+      }, 'Failed to request password reset code');
 
       if (data.preview_code) {
         setPreviewCode(data.preview_code);
@@ -228,7 +209,7 @@ export default function AuthModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const data = await safeFetchJson('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,12 +217,7 @@ export default function AuthModal({
           code: resetCode.trim(),
           new_password: newPassword
         })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Password reset failed');
-      }
+      }, 'Password reset failed');
 
       setPassword(newPassword);
       setSuccessMsg('Password reset successfully! Please log in with your new password.');

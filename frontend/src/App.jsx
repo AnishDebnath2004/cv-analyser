@@ -283,18 +283,31 @@ export default function App() {
         body: formData,
       });
 
-      if (!res.ok) {
-        let errorMsg = 'Analysis failed';
+      let rawText = '';
+      try {
+        rawText = await res.text();
+      } catch {
+        rawText = '';
+      }
+
+      let parsed = null;
+      if (rawText && rawText.trim().length > 0) {
         try {
-          const errorData = await res.json();
-          errorMsg = errorData.detail || errorMsg;
+          parsed = JSON.parse(rawText);
         } catch {
-          try {
-            const rawText = await res.text();
-            errorMsg = rawText.slice(0, 150) || errorMsg;
-          } catch {
-            errorMsg = `Server error (Status ${res.status})`;
-          }
+          parsed = null;
+        }
+      }
+
+      if (!res.ok) {
+        let errorMsg = parsed?.detail;
+        if (!errorMsg && rawText && rawText.length < 250 && !rawText.includes('<html') && !rawText.includes('<!DOCTYPE')) {
+          errorMsg = rawText.trim();
+        }
+        if (!errorMsg) {
+          errorMsg = res.status >= 500
+            ? 'A server error occurred. Please verify the backend server is running and try again.'
+            : `Analysis failed (Status ${res.status})`;
         }
 
         // Check if server indicated rate limit / anonymous quota reached
@@ -315,8 +328,7 @@ export default function App() {
         throw new Error(errorMsg);
       }
 
-      const data = await res.json();
-      setAnalysisResult(data);
+      setAnalysisResult(parsed || {});
 
       // Track successful analysis for anonymous guests
       if (!currentUser) {
@@ -380,9 +392,32 @@ export default function App() {
         body: JSON.stringify({ text: text.trim() }),
       });
 
+      let rawText = '';
+      try {
+        rawText = await res.text();
+      } catch {
+        rawText = '';
+      }
+
+      let parsed = null;
+      if (rawText && rawText.trim().length > 0) {
+        try {
+          parsed = JSON.parse(rawText);
+        } catch {
+          parsed = null;
+        }
+      }
+
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const detailMsg = errorData.detail || `Server error (${res.status})`;
+        let detailMsg = parsed?.detail;
+        if (!detailMsg && rawText && rawText.length < 250 && !rawText.includes('<html') && !rawText.includes('<!DOCTYPE')) {
+          detailMsg = rawText.trim();
+        }
+        if (!detailMsg) {
+          detailMsg = res.status >= 500
+            ? 'A server error occurred. Please verify the backend server is running and try again.'
+            : `Analysis failed (Status ${res.status})`;
+        }
 
         if (res.status === 403) {
           openAuthModal('signup', typeof detailMsg === 'string' ? detailMsg : "You have used your 2 free resume evaluations. Please sign up or log in for unlimited analyses.");
@@ -400,8 +435,7 @@ export default function App() {
         throw new Error(detailMsg);
       }
 
-      const data = await res.json();
-      setAnalysisResult(data);
+      setAnalysisResult(parsed || {});
 
       // Track successful analysis for anonymous guests
       if (!currentUser) {

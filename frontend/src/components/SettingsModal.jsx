@@ -15,6 +15,7 @@ import {
   LogIn,
   Sparkles
 } from 'lucide-react';
+import { safeFetchJson } from '../utils/apiClient';
 
 export default function SettingsModal({
   isOpen,
@@ -56,17 +57,13 @@ export default function SettingsModal({
     setMfaError('');
     setMfaLoading(true);
     try {
-      const res = await fetch('/api/auth/mfa/setup', {
+      const data = await safeFetchJson('/api/auth/mfa/setup', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to initialize MFA setup');
-      }
+      }, 'Failed to initialize MFA setup');
       setSetupData(data);
       setMfaStep('setup');
     } catch (err) {
@@ -85,7 +82,7 @@ export default function SettingsModal({
     setMfaError('');
     setMfaLoading(true);
     try {
-      const res = await fetch('/api/auth/mfa/enable', {
+      const data = await safeFetchJson('/api/auth/mfa/enable', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -95,11 +92,7 @@ export default function SettingsModal({
           secret: setupData.secret,
           code: verifyCode.trim()
         })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Invalid verification code');
-      }
+      }, 'Invalid verification code');
       setMfaSuccess('Two-Factor Authentication is now actively protecting your account!');
       setMfaStep('success');
       if (onUserUpdated) {
@@ -119,17 +112,13 @@ export default function SettingsModal({
     setMfaError('');
     setMfaLoading(true);
     try {
-      const res = await fetch('/api/auth/mfa/disable', {
+      const data = await safeFetchJson('/api/auth/mfa/disable', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to disable 2FA');
-      }
+      }, 'Failed to disable 2FA');
       setMfaSuccess('Two-Factor Authentication has been disabled.');
       if (onUserUpdated) {
         onUserUpdated({ ...currentUser, mfa_enabled: false });
