@@ -73,3 +73,4 @@ export async function safeFetchJson(url, options = {}, fallbackErrorMsg = 'Reque
 
   return data !== null ? data : {};
 }
+
