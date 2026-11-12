@@ -34,9 +34,20 @@ def resolve_data_dir() -> str:
     local_data = os.path.join(backend_dir, "data")
     try:
         os.makedirs(local_data, exist_ok=True)
+        # Verify write permission
+        test_file = os.path.join(local_data, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("ok")
+        if os.path.exists(test_file):
+            os.remove(test_file)
         return local_data
     except Exception:
-        return "/tmp"
+        tmp_dir = os.path.join("/tmp", "cv_data")
+        try:
+            os.makedirs(tmp_dir, exist_ok=True)
+            return tmp_dir
+        except Exception:
+            return "/tmp"
 
 
 DATA_DIR = resolve_data_dir()
