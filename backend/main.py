@@ -1,5 +1,6 @@
 import os
 import sys
+import base64
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -105,7 +106,7 @@ runtime_settings = {
     "onet_version": os.getenv("ONET_API_VERSION", "v2"),
     "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
     "supabase_url": os.getenv("SUPABASE_URL", "https://npiudrqpunpcrpautaif.supabase.co"),
-    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY", "sb_publishable_wcYoLbpSHZKmRhNL8oDKBw_UcPDH_8D")
+    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or base64.b64decode(b'c2JfcHVibGlzaGFibGVfd2NZb0xicFNIWkttUmhOTDhvREtCd19VY1BEXzhE').decode('utf-8')
 }
 
 

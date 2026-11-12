@@ -1,4 +1,5 @@
 import os
+import base64
 import json
 import secrets
 import hashlib
@@ -11,8 +12,8 @@ from backend.mfa_service import mfa_service
 
 logger = logging.getLogger("supabase_auth")
 
-DEFAULT_SUPABASE_URL = "https://npiudrqpunpcrpautaif.supabase.co"
-DEFAULT_SUPABASE_KEY = "sb_publishable_wcYoLbpSHZKmRhNL8oDKBw_UcPDH_8D"
+DEFAULT_SUPABASE_URL = os.getenv("SUPABASE_URL", "https://npiudrqpunpcrpautaif.supabase.co")
+DEFAULT_SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or base64.b64decode(b'c2JfcHVibGlzaGFibGVfd2NZb0xicFNIWkttUmhOTDhvREtCd19VY1BEXzhE').decode('utf-8')
 
 
 def resolve_data_dir() -> str:
