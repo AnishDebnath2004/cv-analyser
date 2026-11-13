@@ -1,11 +1,14 @@
-from http.server import BaseHTTPRequestHandler
+import os
+import sys
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"Hello from Vercel Python Lambda!")
+# Ensure root directory and Lambda task root are on sys.path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
 
-    def do_POST(self):
-        self.do_GET()
+for p in (ROOT_DIR, CURRENT_DIR, os.getcwd(), os.environ.get("LAMBDA_TASK_ROOT", "/var/task")):
+    if p and os.path.isdir(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+from backend.main import app as _app
+
+app = _app
