@@ -3,7 +3,7 @@
   "outputDirectory": "static",
   "functions": {
     "api/index.py": {
-      "maxDuration": 60,
+      "maxDuration": 15,
       "includeFiles": "backend/**"
     }
   },
