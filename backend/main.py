@@ -3,6 +3,7 @@ import sys
 import re
 import urllib.parse
 import base64
+import secrets
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -18,7 +19,7 @@ for _p in (_current_dir, _parent_dir, os.getcwd(), os.environ.get("LAMBDA_TASK_R
 from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends, Request, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, HTMLResponse
 from pydantic import BaseModel
 
 try:
@@ -71,6 +72,8 @@ app = FastAPI(
     title="O*NET AI CV Analyzer & Career Guidance Agent",
     description="Intelligent AI Agent for scanning resumes and matching candidates to optimal O*NET job profiles.",
     version="1.0.2",
+    docs_url=None,
+    redoc_url=None,
     redirect_slashes=False
 )
 
@@ -127,20 +130,23 @@ async def block_sensitive_files_middleware(request: Request, call_next):
 async def add_security_headers_middleware(request: Request, call_next):
     """
     Security Middleware: Enforce strict CSP, anti-clickjacking, and transport protections.
-    Strictly restricts script-src, object-src, and frame-ancestors.
+    Strictly restricts script-src (using per-request nonces and strict-dynamic), object-src, and frame-ancestors.
     """
+    nonce = secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
+
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}' 'strict-dynamic' https:; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
         "font-src 'self' https://fonts.gstatic.com data:; "
-        "img-src 'self' data: blob:; "
-        "connect-src 'self' https://npiudrqpunpcrpautaif.supabase.co https://*.supabase.co; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://npiudrqpunpcrpautaif.supabase.co https://*.supabase.co https://cdn.jsdelivr.net; "
         "worker-src 'self' blob:;"
     )
     response.headers["X-Frame-Options"] = "DENY"
@@ -670,6 +676,36 @@ async def generate_builder_summary(
         )
 
 
+
+# Custom Swagger UI route without inline scripts (using external bundle + cryptographic nonce)
+SWAGGER_INIT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "assets", "swagger-init.js")
+if not os.path.exists(SWAGGER_INIT_PATH):
+    SWAGGER_INIT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "public", "assets", "swagger-init.js")
+
+@app.get("/assets/swagger-init.js", include_in_schema=False)
+async def serve_swagger_init():
+    if os.path.exists(SWAGGER_INIT_PATH):
+        return FileResponse(SWAGGER_INIT_PATH, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html(request: Request):
+    nonce = getattr(request.state, "csp_nonce", secrets.token_urlsafe(16))
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>O*NET AI CV Analyzer - Swagger UI</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script nonce="{nonce}" src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script nonce="{nonce}" src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script nonce="{nonce}" src="/assets/swagger-init.js"></script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 # Mount router to handle both /api prefixed routes AND root-relative routes seamlessly
 app.include_router(api_router, prefix="/api")
