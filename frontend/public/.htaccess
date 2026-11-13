@@ -1,0 +1,10 @@
+# Apache Security Hardening
+# Block public HTTP access to .env files and sensitive dotfiles
+
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.(?!well-known)">
+    Require all denied
+</FilesMatch>
