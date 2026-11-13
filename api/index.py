@@ -1,83 +1,123 @@
 import os
 import sys
+import json
 import logging
 import traceback
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 
-# Initialize FastAPI app at top-level so @vercel/python AST scanner detects it
-app = FastAPI(title="CV Analyzer API")
+_import_status = {}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Setup candidate roots so that 'backend' package and modules are importable in Vercel serverless Lambda
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PARENT_DIR = os.path.dirname(CURRENT_DIR)
-CWD = os.getcwd()
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
 LAMBDA_TASK_ROOT = os.environ.get("LAMBDA_TASK_ROOT", "/var/task")
 
-for p in (CWD, PARENT_DIR, CURRENT_DIR, LAMBDA_TASK_ROOT):
+for p in (ROOT_DIR, CURRENT_DIR, os.getcwd(), LAMBDA_TASK_ROOT):
     if p and os.path.isdir(p) and p not in sys.path:
         sys.path.insert(0, p)
     backend_sub = os.path.join(p, "backend")
     if os.path.isdir(backend_sub) and backend_sub not in sys.path:
         sys.path.insert(0, backend_sub)
 
-_startup_error = None
-_startup_traceback = None
+try:
+    import fastapi
+    _import_status["fastapi"] = getattr(fastapi, "__version__", "unknown")
+except Exception as e:
+    _import_status["fastapi_error"] = f"{type(e).__name__}: {e}"
 
 try:
-    try:
-        from backend.main import api_router
-    except ImportError:
-        from main import api_router
-
-    app.include_router(api_router, prefix="/api")
-    app.include_router(api_router)
-except Exception as b_exc:
-    _startup_error = f"{type(b_exc).__name__}: {str(b_exc)}"
-    _startup_traceback = traceback.format_exc()
-    logging.error(f"Failed to load backend api_router: {_startup_error}\n{_startup_traceback}")
+    from backend.main import app as fastapi_app
+    _import_status["backend_main"] = "SUCCESS"
+except Exception as e:
+    fastapi_app = None
+    _import_status["backend_main_error"] = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+    logging.error(f"Failed to load backend.main app: {_import_status}")
 
 
-@app.get("/api/debug")
-@app.get("/debug")
-async def debug_info():
-    return {
-        "status": "online",
-        "initialized": _startup_error is None,
-        "startup_error": _startup_error,
-        "startup_traceback": _startup_traceback,
-        "python_version": sys.version,
-        "cwd": os.getcwd(),
-        "sys_path": sys.path[:10],
-        "cwd_listdir": os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else [],
-        "parent_listdir": os.listdir(PARENT_DIR) if os.path.exists(PARENT_DIR) else [],
-    }
+async def app(scope, receive, send):
+    scope_type = scope.get("type")
 
+    # Special built-in diagnostics route
+    if scope_type == "http":
+        path = scope.get("path", "")
+        if path in ("/api/debug", "/debug"):
+            body = json.dumps({
+                "status": "online",
+                "initialized": fastapi_app is not None,
+                "import_status": _import_status,
+                "python_version": sys.version,
+                "cwd": os.getcwd(),
+                "sys_path": sys.path[:10],
+                "cwd_files": os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else [],
+            }).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(body)).encode("utf-8")],
+                    [b"access-control-allow-origin", b"*"],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": body,
+            })
+            return
 
-@app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
-async def fallback_catchall(request: Request, full_path: str):
-    if _startup_error:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "detail": f"Backend initialization error on Vercel: {_startup_error}",
-                "traceback": _startup_traceback,
-                "requested_path": full_path,
-            }
-        )
-    return JSONResponse(
-        status_code=404,
-        content={
-            "detail": f"Route not found: {request.method} /{full_path}",
-            "requested_path": full_path,
-        }
-    )
+    if fastapi_app is not None:
+        try:
+            return await fastapi_app(scope, receive, send)
+        except Exception as req_err:
+            if scope_type == "http":
+                body = json.dumps({
+                    "detail": f"Exception during request handling: {type(req_err).__name__}: {req_err}",
+                    "traceback": traceback.format_exc(),
+                    "path": scope.get("path"),
+                }).encode("utf-8")
+                await send({
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"content-length", str(len(body)).encode("utf-8")],
+                        [b"access-control-allow-origin", b"*"],
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": body,
+                })
+                return
+            raise
+
+    # Lifespan handling if FastAPI failed to load
+    if scope_type == "lifespan":
+        while True:
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            elif message["type"] == "lifespan.shutdown":
+                await send({"type": "lifespan.shutdown.complete"})
+                return
+
+    # HTTP fallback response if FastAPI failed to load
+    if scope_type == "http":
+        body = json.dumps({
+            "detail": "Backend initialization failed on Vercel.",
+            "import_status": _import_status,
+            "python_version": sys.version,
+            "cwd": os.getcwd(),
+            "sys_path": sys.path[:10],
+        }).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 500,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(body)).encode("utf-8")],
+                [b"access-control-allow-origin", b"*"],
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": body,
+        })
