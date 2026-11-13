@@ -1,5 +1,7 @@
 import os
 import sys
+import re
+import urllib.parse
 import base64
 import logging
 from typing import Optional, Dict, Any, List, Tuple
@@ -13,10 +15,10 @@ for _p in (_current_dir, _parent_dir, os.getcwd(), os.environ.get("LAMBDA_TASK_R
     if _p and os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
 
-from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends, Request, status
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends, Request, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 try:
@@ -96,6 +98,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def block_sensitive_files_middleware(request: Request, call_next):
+    """
+    Security Middleware: Block public HTTP access to .env files and sensitive dotfiles
+    at web server / reverse proxy layer (returns HTTP 403 Forbidden).
+    """
+    raw_path = urllib.parse.unquote(request.url.path).lower()
+    # Check if path targets .env or any variant (.env.local, .env.production, etc.)
+    if (
+        raw_path == "/.env"
+        or raw_path.startswith("/.env")
+        or "/.env" in raw_path
+        or raw_path.endswith("/.env")
+        or bool(re.search(r'(^|/)\.env(\.|$|/)', raw_path))
+    ):
+        return Response(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content="Forbidden: Access to environment configuration files is blocked.\n",
+            media_type="text/plain"
+        )
+    return await call_next(request)
 
 # Runtime Settings state - default automatically to Supabase Cloud credentials
 runtime_settings = {
@@ -652,6 +677,10 @@ if os.path.exists(STATIC_DIR):
     async def serve_frontend(full_path: str):
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API route not found")
+        # Block access to .env and dotfiles
+        normalized = urllib.parse.unquote(full_path).lower().lstrip("/")
+        if normalized == ".env" or normalized.startswith(".env") or "/.env" in normalized or bool(re.search(r'(^|/)\.env(\.|$|/)', normalized)):
+            raise HTTPException(status_code=403, detail="Forbidden: Access to environment configuration files is blocked.")
         index_file = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_file):
             return FileResponse(index_file)
