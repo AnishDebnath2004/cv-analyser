@@ -27,30 +27,36 @@ try:
     from fastapi.responses import JSONResponse
     from fastapi.middleware.cors import CORSMiddleware
 
-    # Initialize top-level FastAPI instance
-    app = FastAPI(title="CV Analyzer API")
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     try:
         try:
-            from backend.main import api_router
+            from backend.main import app as main_app
         except ImportError:
-            from main import api_router
-
-        # Mount backend api_router for both '/api' prefixed calls and root-relative calls
-        app.include_router(api_router, prefix="/api")
-        app.include_router(api_router)
+            from main import app as main_app
+        app = main_app
     except Exception as b_exc:
         _backend_error = f"{type(b_exc).__name__}: {str(b_exc)}"
         _backend_traceback = traceback.format_exc()
-        logging.error(f"Failed to load backend api_router: {_backend_error}\n{_backend_traceback}")
+        logging.error(f"Failed to load backend app: {_backend_error}\n{_backend_traceback}")
+
+        app = FastAPI(title="CV Analyzer Fallback API")
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+        @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+        async def fallback_route(request: Request, full_path: str):
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "detail": f"Backend initialization error on Vercel: {_backend_error}",
+                    "traceback": _backend_traceback,
+                    "requested_path": full_path,
+                }
+            )
 
     @app.get("/api/debug")
     @app.get("/debug")
@@ -66,18 +72,6 @@ try:
             "cwd_listdir": os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else [],
             "parent_listdir": os.listdir(PARENT_DIR) if os.path.exists(PARENT_DIR) else [],
         }
-
-    if _backend_error:
-        @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
-        async def fallback_route(request: Request, full_path: str):
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "detail": f"Backend initialization error on Vercel: {_backend_error}",
-                    "traceback": _backend_traceback,
-                    "requested_path": full_path,
-                }
-            )
 
 except Exception as f_exc:
     # Pure ASGI standard-library fallback in case FastAPI itself could not be imported
