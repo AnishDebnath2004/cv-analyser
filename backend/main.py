@@ -729,14 +729,18 @@ if os.path.exists(STATIC_DIR):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/")
-    async def serve_root():
+    async def serve_root(request: Request):
         index_file = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_file):
-            return FileResponse(index_file)
+            with open(index_file, "r", encoding="utf-8") as f:
+                html = f.read()
+            nonce = getattr(request.state, "csp_nonce", secrets.token_urlsafe(16))
+            html = re.sub(r'<script(?![^>]*\bnonce=)', f'<script nonce="{nonce}"', html)
+            return HTMLResponse(content=html)
         return {"message": "CV Analyzer API is running. Frontend static build not yet generated."}
 
     @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
+    async def serve_frontend(full_path: str, request: Request):
         if full_path.startswith("api"):
             raise HTTPException(status_code=404, detail="API route not found")
         # Block access to .env and dotfiles
@@ -745,7 +749,11 @@ if os.path.exists(STATIC_DIR):
             raise HTTPException(status_code=403, detail="Forbidden: Access to environment configuration files is blocked.")
         index_file = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_file):
-            return FileResponse(index_file)
+            with open(index_file, "r", encoding="utf-8") as f:
+                html = f.read()
+            nonce = getattr(request.state, "csp_nonce", secrets.token_urlsafe(16))
+            html = re.sub(r'<script(?![^>]*\bnonce=)', f'<script nonce="{nonce}"', html)
+            return HTMLResponse(content=html)
         return {"message": "CV Analyzer API is running. Frontend static build not yet generated."}
 
 
