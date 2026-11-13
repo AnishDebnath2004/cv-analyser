@@ -27,7 +27,7 @@ DEFAULT_SUPABASE_URL = os.getenv("SUPABASE_URL", "https://npiudrqpunpcrpautaif.s
 DEFAULT_SUPABASE_KEY = (
     os.getenv("SUPABASE_KEY") or
     os.getenv("SUPABASE_ANON_KEY") or
-    base64.b64decode(b'c2JfcHVibGlzaGFibGVfd2NZb0xicFNIWkttUmhOTDhvREtCd19VY1BESF84RA==').decode('utf-8')
+    os.getenv("SUPABASE_KEY", "")  # [ShieldCI Fix]
 ).strip()
 
 
@@ -629,4 +629,3 @@ class SupabaseAuthService:
 
 supabase_service = SupabaseAuthService()
 auth_service = supabase_service
-
