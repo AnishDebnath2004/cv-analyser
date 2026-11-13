@@ -122,6 +122,32 @@ async def block_sensitive_files_middleware(request: Request, call_next):
         )
     return await call_next(request)
 
+
+@app.middleware("http")
+async def add_security_headers_middleware(request: Request, call_next):
+    """
+    Security Middleware: Enforce strict CSP, anti-clickjacking, and transport protections.
+    Strictly restricts script-src, object-src, and frame-ancestors.
+    """
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' https://npiudrqpunpcrpautaif.supabase.co https://*.supabase.co; "
+        "worker-src 'self' blob:;"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 # Runtime Settings state - default automatically to Supabase Cloud credentials
 runtime_settings = {
     "onet_api_key": os.getenv("ONET_API_KEY", ""),
