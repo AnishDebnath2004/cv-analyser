@@ -12,6 +12,7 @@ import {
   AlertCircle,
   ShieldCheck
 } from 'lucide-react';
+import { safeFetchJson } from '../utils/apiClient';
 
 export default function AuthSection({
   currentUser,
@@ -45,7 +46,7 @@ export default function AuthSection({
         if (!email.trim() || !email.includes('@')) throw new Error('Please enter a valid email address.');
         if (password.length < 6) throw new Error('Password must be at least 6 characters long.');
 
-        const res = await fetch('/api/auth/register', {
+        const data = await safeFetchJson('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -53,10 +54,7 @@ export default function AuthSection({
             email: email.trim(),
             password: password,
           }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Sign up failed');
+        }, 'Sign up failed');
 
         setSuccessMsg(`Welcome, ${data.user.full_name}! Your account is now active.`);
         onAuthSuccess(data.user, data.token);
@@ -64,17 +62,14 @@ export default function AuthSection({
         if (!email.trim()) throw new Error('Please enter your email address.');
         if (!password) throw new Error('Please enter your password.');
 
-        const res = await fetch('/api/auth/login', {
+        const data = await safeFetchJson('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: email.trim(),
             password: password,
           }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Invalid email or password');
+        }, 'Invalid email or password');
 
         setSuccessMsg(`Welcome back, ${data.user.full_name}!`);
         onAuthSuccess(data.user, data.token);

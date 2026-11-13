@@ -6,13 +6,12 @@ from typing import Optional, Dict, Any, List, Tuple
 
 APP_SECRET_TOKEN = os.getenv("APP_SECRET_TOKEN", "")  # [ShieldCI Fix] Load via environment variable
 
-# Ensure both current directory and parent directory are on sys.path
+# Ensure current directory, parent directory, cwd, and Lambda task root are on sys.path
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_current_dir)
-if _current_dir not in sys.path:
-    sys.path.insert(0, _current_dir)
-if _parent_dir not in sys.path:
-    sys.path.insert(0, _parent_dir)
+for _p in (_current_dir, _parent_dir, os.getcwd(), os.environ.get("LAMBDA_TASK_ROOT", "/var/task")):
+    if _p and os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException, Query, Body, Header, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,7 +105,11 @@ runtime_settings = {
     "onet_version": os.getenv("ONET_API_VERSION", "v2"),
     "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
     "supabase_url": os.getenv("SUPABASE_URL", "https://npiudrqpunpcrpautaif.supabase.co"),
-    "supabase_key": os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or base64.b64decode(b'c2JfcHVibGlzaGFibGVfd2NZb0xicFNIWkttUmhOTDhvREtCd19VY1BEXzhE').decode('utf-8')
+    "supabase_key": (
+        os.getenv("SUPABASE_KEY") or
+        os.getenv("SUPABASE_ANON_KEY") or
+        base64.b64decode(b'c2JfcHVibGlzaGFibGVfd2NZb0xicFNIWkttUmhOTDhvREtCd19VY1BESF84RA==').decode('utf-8')
+    ).strip()
 }
 
 
